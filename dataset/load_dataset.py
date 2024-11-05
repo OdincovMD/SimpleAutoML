@@ -46,6 +46,24 @@ def load_google_dataset():
     else:
         raise FileNotFoundError(f'Вы ввели несуществующее название папки. Проверьте правильность названия и наличия папки: {folder_name}')
 
+    def get_all_files_in_folder(folder_id):
+        """
+        Рекурсивно получает список всех файлов в папке и её подпапках на Google Диске.
+        """
+        files = []
+        query = f"'{folder_id}' in parents and trashed = false"
+        results = service.files().list(q=query, fields="files(id, name, mimeType, size)").execute()
+        folder_files = results.get('files', [])
+
+        for file in folder_files:
+            if file['mimeType'] == 'application/vnd.google-apps.folder':
+                # Рекурсивно обрабатываем подпапку
+                files.extend(get_all_files_in_folder(file['id']))
+            else:
+                files.append(file)
+
+        return files
+
     def download_files_from_folder(folder_id, path='downloads'):
         """
         Скачивает все файлы из заданной папки на Google Диске в указанную локальную директорию.
@@ -56,35 +74,33 @@ def load_google_dataset():
             path (str): Локальный путь для сохранения файлов. По умолчанию 'downloads'.
         """
 
+        all_files = get_all_files_in_folder(folder_id)
+        total_files = len(all_files)
+
+        if not all_files:
+            print("Нет файлов для скачивания.")
+            return
+
         if path and not os.path.exists(path):
             os.makedirs(path)
 
-        query = f"'{folder_id}' in parents and trashed = false"
-        results = service.files().list(q=query, fields="files(id, name, mimeType, size)").execute()
-        files = results.get('files', [])
+        with tqdm(total=total_files, desc="Скачивание файлов", unit="файл") as file_pbar:
+            for file in all_files:
+                file_id = file['id']
+                file_name = file['name']
+                file_path = os.path.join(path, file_name)
 
-        if not files:
-            return
+                if file['mimeType'] == 'application/vnd.google-apps.folder':
+                    download_files_from_folder(file_id, file_path)
+                else:
+                    request = service.files().get_media(fileId=file_id)
+                    fh = io.FileIO(file_path, 'wb')
+                    downloader = MediaIoBaseDownload(fh, request)
 
-        for file in files:
-            file_id = file['id']
-            file_name = file['name']
-            file_path = os.path.join(path, file_name)
-
-            if file['mimeType'] == 'application/vnd.google-apps.folder':
-                download_files_from_folder(file_id, file_path)
-            else:
-                request = service.files().get_media(fileId=file_id)
-                fh = io.FileIO(file_path, 'wb')
-                downloader = MediaIoBaseDownload(fh, request)
-
-                file_size = int(file.get('size', 0))
-                with tqdm(total=file_size, unit='B', unit_scale=True, desc=file_name) as pbar:
                     done = False
                     while not done:
-                        status, done = downloader.next_chunk()
-                        pbar.update(status.resumable_progress - pbar.n)
-
+                        _, done = downloader.next_chunk()
+                    file_pbar.update(1)
 
     download_files_from_folder(folder_id)
 
@@ -131,6 +147,3 @@ def main(load_type):
     else:
         raise ValueError('Некоректный тип данных')
     return folder
-
-
-
