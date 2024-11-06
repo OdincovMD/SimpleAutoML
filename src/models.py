@@ -7,7 +7,7 @@ metadata_obj = MetaData()
 
 # конструктор типов для сокращения кода
 intpk = Annotated[int, mapped_column(primary_key=True)]
-strmy = Annotated[str, mapped_column(VARCHAR(100))]
+strmy = Annotated[str, mapped_column(VARCHAR(200))]
 boolmy = Annotated[bool, mapped_column(Boolean)]
 
 class DatasetOrm(Base):

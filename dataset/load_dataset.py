@@ -2,6 +2,7 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 from tqdm import tqdm
+from src.queries.orm import SyncOrm
 import zipfile
 import os
 import io
@@ -45,34 +46,42 @@ def load_google_dataset():
             break
     else:
         raise FileNotFoundError(f'Вы ввели несуществующее название папки. Проверьте правильность названия и наличия папки: {folder_name}')
-
+    
     def get_all_files_in_folder(folder_id):
         """
         Рекурсивно получает список всех файлов в папке и её подпапках на Google Диске.
         """
         files = []
         query = f"'{folder_id}' in parents and trashed = false"
-        results = service.files().list(q=query, fields="files(id, name, mimeType, size)").execute()
+        results = service.files().list(q=query, fields="files(id, name, mimeType)").execute()
         folder_files = results.get('files', [])
 
         for file in folder_files:
             if file['mimeType'] == 'application/vnd.google-apps.folder':
-                # Рекурсивно обрабатываем подпапку
-                files.extend(get_all_files_in_folder(file['id']))
+                # Рекурсивно обрабатываем подпапку и добавляем путь к папке
+                subfolder_files = get_all_files_in_folder(file['id'])
+                for subfile in subfolder_files:
+                    subfile['path'] = os.path.join(file['name'], subfile['path'])
+                files.extend(subfolder_files)
             else:
-                files.append(file)
+                # Добавляем информацию о файле с базовым путём (без папок)
+                files.append({'id': file['id'], 'name': file['name'], 'path': file['name']})
 
         return files
 
-    def download_files_from_folder(folder_id, path='downloads'):
+    def download_files_from_folder(folder_id, download_path=f'downloads/{folder_name}'):
         """
         Скачивает все файлы из заданной папки на Google Диске в указанную локальную директорию.
-        Работает рекурсивно, если обнаруживает подпапки.
+        Работает рекурсивно, если обнаруживает подпапки. Пропускает файлы, которые уже есть в базе данных.
 
         Аргументы:
+            service: Авторизованный объект службы Google Drive API.
             folder_id (str): Идентификатор папки на Google Диске.
-            path (str): Локальный путь для сохранения файлов. По умолчанию 'downloads'.
+            folder_name (str): Название папки в базе данных.
+            download_path (str): Локальный путь для сохранения файлов. По умолчанию 'downloads'.
         """
+        # Получаем список уже загруженных файлов из базы данных
+        old_files = [el[0] for el in SyncOrm.select_data(folder_name)]
 
         all_files = get_all_files_in_folder(folder_id)
         total_files = len(all_files)
@@ -81,26 +90,29 @@ def load_google_dataset():
             print("Нет файлов для скачивания.")
             return
 
-        if path and not os.path.exists(path):
-            os.makedirs(path)
-
         with tqdm(total=total_files, desc="Скачивание файлов", unit="файл") as file_pbar:
             for file in all_files:
                 file_id = file['id']
                 file_name = file['name']
-                file_path = os.path.join(path, file_name)
+                file_relative_path = os.path.join(download_path, file['path'])
 
-                if file['mimeType'] == 'application/vnd.google-apps.folder':
-                    download_files_from_folder(file_id, file_path)
-                else:
-                    request = service.files().get_media(fileId=file_id)
-                    fh = io.FileIO(file_path, 'wb')
+                # Пропускаем файл, если он уже есть в базе данных
+                if file_relative_path in old_files:
+                    file_pbar.update(1)
+                    continue
+
+                # Создаём подпапки для файла, если они ещё не существуют
+                if not os.path.exists(os.path.dirname(file_relative_path)):
+                    os.makedirs(os.path.dirname(file_relative_path))
+
+                # Загружаем файл
+                request = service.files().get_media(fileId=file_id)
+                with io.FileIO(file_relative_path, 'wb') as fh:
                     downloader = MediaIoBaseDownload(fh, request)
-
                     done = False
                     while not done:
                         _, done = downloader.next_chunk()
-                    file_pbar.update(1)
+                file_pbar.update(1)
 
     download_files_from_folder(folder_id)
 
