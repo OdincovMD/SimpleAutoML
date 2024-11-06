@@ -162,3 +162,14 @@ cython_debug/
 #.idea/
 
 automl_token.json
+
+# temp files
+ml/archive
+ml/JSON2YOLO
+ml/runs
+ml/test_annotation
+ml/train_annotation
+ml/valid_annotation
+ml/yolo11n-seg.pt
+ml/yolo11n.pt
+ml/tumor-seg.yaml
