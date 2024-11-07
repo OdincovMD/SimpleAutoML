@@ -164,12 +164,10 @@ cython_debug/
 automl_token.json
 
 # temp files
-ml/archive
-ml/JSON2YOLO
+ml/skin_lesions_dataset
+ml/COCO_to_YOLOv8
+ml/YOLO_dataset
 ml/runs
-ml/test_annotation
-ml/train_annotation
-ml/valid_annotation
 ml/yolo11n-seg.pt
 ml/yolo11n.pt
 ml/tumor-seg.yaml
