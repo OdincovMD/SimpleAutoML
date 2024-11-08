@@ -166,7 +166,7 @@ automl_token.json
 # temp files
 ml/skin_lesions_dataset
 ml/COCO_to_YOLOv8
-ml/YOLO_dataset
+ml/Pothole_Segmentation_YOLOv8
 ml/runs
 ml/yolo11n-seg.pt
 ml/yolo11n.pt
