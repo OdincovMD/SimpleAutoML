@@ -12,4 +12,8 @@ class DownloadTypeError(Exception):
 
 class DownladError(Exception):
     def __init__(self, *args: object) -> None:
-        super().__init__(f"Непредвиденная ошибка. Описание {args[0]}")
+        super().__init__(f"Непредвиденная ошибка. Описание {args}")
+
+class LabelError(Exception):
+    def __init__(self, file: object) -> None:
+        super().__init__(f"Папка label содержит недопустимый файл: {file}")

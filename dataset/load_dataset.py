@@ -7,6 +7,7 @@ from exception.file_system import FolderError, EmptyFolder, DownloadTypeError, D
 import zipfile
 import os
 import io
+import traceback
 
 
 def load_google_dataset():
@@ -130,8 +131,8 @@ def load_google_dataset():
         download_files_from_folder(folder_id)
 
         return f'downloads/{user_folder}/{folder_name}'
-    except Exception:
-        raise DownladError
+    except Exception as error:
+        raise DownladError(traceback.format_exc())
 
 
 def extract_zip(zip_path, extract_to='downloads/'):
