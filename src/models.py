@@ -1,4 +1,5 @@
-from sqlalchemy import VARCHAR, Index, Boolean, MetaData, UniqueConstraint
+from sqlalchemy import VARCHAR, Index, Boolean, MetaData, UniqueConstraint, Text
+import json
 from src.database import Base
 from sqlalchemy.orm import Mapped, mapped_column
 from typing import Annotated
@@ -29,3 +30,12 @@ class ModelsOrm(Base):
     id: Mapped[intpk]
     train_folder: Mapped[strmy]
     model_path: Mapped[strmy]
+    _classes: Mapped[str] = mapped_column("classes", Text, nullable=True)
+
+    @property
+    def classes(self) -> list:
+        return json.loads(self._classes) if self._classes else []
+
+    @classes.setter
+    def classes(self, value: list):
+        self._classes = json.dumps(value, ensure_ascii=False)

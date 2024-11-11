@@ -41,7 +41,7 @@ class SyncOrm:
     
     @staticmethod
     def insert_model(row):
-        file = ModelsOrm(train_folder=row['train_folder'], model_path=row['path'])
+        file = ModelsOrm(train_folder=row['train_folder'], model_path=row['path'], classes=row['classes'])
         with session_factory() as session:
             session.add(file)
             session.flush()  # Отправляет данные в базу данных, но не сохраняет окончательно
@@ -51,9 +51,9 @@ class SyncOrm:
     def select_model(folder):
         with session_factory() as session:
             query = (
-                select(ModelsOrm.path)
-                .select_from(ModelsOrm).filter(
-                    ModelsOrm.train_folder == folder)    
+                select(ModelsOrm.model_path, ModelsOrm._classes)
+                .select_from(ModelsOrm)
+                .where(ModelsOrm.train_folder == folder)
             )
             result = session.execute(query)
             return result.fetchall()

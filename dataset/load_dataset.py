@@ -3,7 +3,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 from tqdm import tqdm
 from src.queries.orm import SyncOrm
-from exception.file_system import FolderError, EmptyFolder, DownloadTypeError, DownladError
+from exception.file_system import FolderError, EmptyFolderError, DownloadTypeError, DownloadError
 import zipfile
 import os
 import io
@@ -51,7 +51,7 @@ def load_google_dataset():
         ).execute().get('files', [])
 
         if not target_folders:
-            raise EmptyFolder(user_folder)
+            raise EmptyFolderError(user_folder)
 
         folder_name = input(f"Папка с датасетом: {', '.join(folder['name'] for folder in target_folders)}: ")
 
@@ -132,7 +132,7 @@ def load_google_dataset():
 
         return f'downloads/{user_folder}/{folder_name}'
     except Exception as error:
-        raise DownladError(traceback.format_exc())
+        raise DownloadError(traceback.format_exc())
 
 
 def extract_zip(zip_path, extract_to='downloads/'):
