@@ -163,11 +163,7 @@ cython_debug/
 
 automl_token.json
 
-# temp files
-ml/skin_lesions_dataset
-ml/COCO_to_YOLOv8
+# ml files
 ml/datasets
-ml/runs
-ml/yolo11n-seg.pt
-ml/yolo11n.pt
-ml/tumor-seg.yaml
+ml/segmentation/runs
+ml/segmentation/yolo11n-seg.pt
