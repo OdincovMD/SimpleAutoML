@@ -1,6 +1,7 @@
 import yaml
 import os
 from exception.file_system import FolderError, TxtFileNotFoundError
+from ml.classification.augmentation import save_with_augmentations
 import random
 import shutil
 from tqdm import tqdm
@@ -50,7 +51,7 @@ def save_files_to_dir(files, image_dir, label_dir, dest_image_dir, dest_label_di
             raise TxtFileNotFoundError(label_file, label_dir)
 
 
-def train_val_test_split(path_to_dataset, train_size=0.9, val_size=0.1, test_size=0.0, shuffle=True, random_seed=42):
+def spliting_seg(path_to_dataset, train_size=0.9, val_size=0.1, test_size=0.0, shuffle=True, random_seed=42):
     """
     Разделяет датасет на обучающую, валидационную и тестовую выборки и сохраняет их в отдельные папки.
 
@@ -236,3 +237,58 @@ def copy_files(new_train_paths, destination_folder):
             file_name = os.path.basename(src_path)
             dest_path = os.path.join(destination_folder, file_name)
             shutil.copy2(src_path, dest_path)
+
+
+def spliting_class(path_to_dataset, val_size=0.85, train_size=0.9, shuffle=False, random_seed=42):
+    """
+    Загрузка и разбиение набора данных для классификатора на тренировочную, валидационную и тестовую части.
+    Также автоматически применяет аугментацию для классов с меньшим количеством примеров.
+
+    Параметры:
+        path_to_dataset (str): Путь к директории, содержащей поддиректории с изображениями по классам.
+        val_size (float): Доля данных для валидационного набора.
+        train_size (float): Доля данных для тренировочного набора (должна быть меньше `val_size`).
+        shuffle (bool): Если `True`, перемешивает файлы перед разбиением.
+        random_seed (int): Сид для случайной генерации (при shuffle=True).
+    Возвращает:
+        None. Функция сохраняет файлы в структуре директорий: './data_root/train', './data_root/val', './data_root/test'.
+    """
+    output_dir = './data_root'
+    train_dir = os.path.join(output_dir, 'train')
+    val_dir = os.path.join(output_dir, 'val')
+    test_dir = os.path.join(output_dir, 'test')
+
+    class_names = os.listdir(path_to_dataset)
+
+    class_count = {}
+    for class_name in class_names:
+        class_dir = os.path.join(path_to_dataset, class_name)
+        class_count[class_name] = len(os.listdir(class_dir))
+
+    max_class_name, max_class_count = max(class_count.items(), key=lambda item: item[1])
+
+    for class_name in class_names:
+        os.makedirs(os.path.join(train_dir, class_name), exist_ok=True)
+        os.makedirs(os.path.join(val_dir, class_name), exist_ok=True)
+        os.makedirs(os.path.join(test_dir, class_name), exist_ok=True)
+
+        source_dir = os.path.join(path_to_dataset, class_name)
+        class_files = os.listdir(source_dir)
+        
+        if shuffle:
+            random.seed(random_seed)
+            random.shuffle(class_files)
+
+        split_train_end = int(len(class_files) * val_size)
+        split_val_end = int(len(class_files) * train_size)
+
+        train_files = class_files[:split_train_end]
+        val_files = class_files[split_train_end:split_val_end]
+        test_files = class_files[split_val_end:]
+        if class_name != max_class_name:
+            augment_factor = max_class_count // class_count[class_name]
+        else:
+            augment_factor = 0
+        save_with_augmentations(train_files, source_dir, train_dir, class_name, desc=f"dir: train | class: {class_name}", augment_factor=augment_factor)
+        save_with_augmentations(val_files, source_dir, val_dir, class_name, desc=f"dir: val | class: {class_name}")
+        save_with_augmentations(test_files, source_dir, test_dir, class_name, desc=f"dir: test | class: {class_name}")

@@ -143,12 +143,15 @@ def extract_zip(zip_path, extract_to='downloads/'):
         zip_path (str): Путь к zip-архиву (без расширения .zip).
         extract_to (str): Путь, куда будут извлечены файлы. По умолчанию 'downloads'.
     """
-    user_folder = input('Введите название вашей папки:')
-    if not os.path.exists(extract_to+user_folder):
-        os.makedirs(extract_to+user_folder)
-
+    user_folder = input('Введите название вашей папки: ')
+    user_task = input('Введите название вашей задачи: ')
+    path = extract_to+user_folder+'/'+user_task
+    if not os.path.exists(path):
+        os.makedirs(path)
+    
     with zipfile.ZipFile(zip_path+'.zip', 'r') as zip_ref:
-        zip_ref.extractall(extract_to+user_folder)
+        zip_ref.extractall(path)
+    return path
 
 
 def main(load_type):
@@ -170,8 +173,7 @@ def main(load_type):
     if load_type == 'drive':
         folder = load_google_dataset()
     elif load_type == 'zip':
-        folder = input('Название вашего zip-архива: ')
-        extract_zip(folder)
+        folder = extract_zip(input('Название вашего zip-архива: '))
     else:
         raise DownloadTypeError(load_type)
     return folder
