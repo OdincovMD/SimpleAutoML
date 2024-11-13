@@ -165,5 +165,8 @@ automl_token.json
 
 # ml files
 ml/datasets
-ml/segmentation/runs
+ml/runs
 ml/segmentation/yolo11n-seg.pt
+ml/segmentation/*.ipynb
+ml/*.ipynb
+ml/*.pt
