@@ -1,12 +1,12 @@
 import os
 import shutil
 import dataset.load_dataset as load_dataset
-from dataset.spliting import spliting_seg, create_yaml, building_yaml, copy_files, spliting_class
+from dataset.spliting import DataSpliting
+from ml.model import Model
 from src.queries.orm import SyncOrm 
 
 SyncOrm.create_tables()
-load_type = input('Тип загрузки (drive/zip): ')
-folder = load_dataset.main(load_type)
+folder = load_dataset.main()
 dataset_path = os.path.join(folder, 'dataset')
 data_root = './data_root'
 
@@ -19,18 +19,19 @@ if input("Выберите вашу задачу: (сегментация | кл
 
     # Проверка, существует ли модель для текущей папки
     if not SyncOrm.select_model(folder):
-        data_root = spliting_seg(dataset_path) 
-        label = building_yaml(dataset_path, data_root)
+        data = DataSpliting(dataset_path)
+        data.spliting_seg()
         # model = Обучение(dataset_path) # Здесь происходит обучение модели
         SyncOrm.update_data(folder)
-        SyncOrm.insert_model({'train_folder': folder, 'path': model_path, 'classes': label})
+        # SyncOrm.insert_model({'train_folder': folder, 'path': model_path, 'classes': data.names})
 
     # Если есть данные для дообучения, дообучаем модель
-    elif add_training := SyncOrm.select_data(folder):
+    elif add_training := SyncOrm.select_data_not_trained(folder):
         model_path, classes = SyncOrm.select_model(folder)[0]
         new_train_paths = [os.path.join(dataset_path, entry[0]) for entry in add_training]
-        copy_files(new_train_paths, destination_folder=data_root)
-        create_yaml(classes, data_root)
+        data = DataSpliting(dataset_path)
+        data.copy_files(new_train_paths, destination_folder=data_root)
+        data.create_yaml(classes, data_root)
         # model = Дообучение(new_train_paths) # Здесь происходит дообучение модели
         SyncOrm.update_data(folder)
         SyncOrm.update_model(folder, model_path)
@@ -45,16 +46,20 @@ if input("Выберите вашу задачу: (сегментация | кл
 
 else:
     if not SyncOrm.select_model(folder):
-        data_root =  spliting_class(dataset_path, train_size=1) 
-        # model = Обучение(dataset_path) # Здесь происходит обучение модели
+        data = DataSpliting(dataset_path)
+        data.spliting_class()
+        model = Model(model_type='yolo11n-cls.yaml', dataset_path=data.output_dir, folder=folder)
+        model.train()
         SyncOrm.update_data(folder)
-        SyncOrm.insert_model({'train_folder': folder, 'path': model_path, 'classes': 'None'})
-    elif add_training := SyncOrm.select_data(folder):
+        SyncOrm.insert_model({'train_folder': folder, 'path': model.model_path, 'classes': data.names, 'imgsz': model.imgsz})
+
+    elif add_training := SyncOrm.select_data_not_trained(folder):
         data_root = './data_root'
         model_path, _ = SyncOrm.select_model(folder)[0]
         new_train_paths = [os.path.join(dataset_path, entry[0]) for entry in add_training]
-        copy_files(new_train_paths, destination_folder=data_root)
-        # ,model = Дообучение(new_train_paths) # Здесь происходит дообучение модели
+        data = DataSpliting(dataset_path)
+        data.copy_files(new_train_paths, destination_folder=data_root)
+        # model = Дообучение(new_train_paths) # Здесь происходит дообучение модели
         SyncOrm.update_data(folder)
         SyncOrm.update_model(folder, model_path)
      # Если модель уже существует, проводим инференс

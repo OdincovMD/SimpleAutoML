@@ -1,4 +1,4 @@
-from sqlalchemy import VARCHAR, Index, Boolean, MetaData, UniqueConstraint, Text
+from sqlalchemy import VARCHAR, Index, Boolean, MetaData, UniqueConstraint, Text, INTEGER
 import json
 from src.database import Base
 from sqlalchemy.orm import Mapped, mapped_column
@@ -8,6 +8,7 @@ metadata_obj = MetaData()
 
 # конструктор типов для сокращения кода
 intpk = Annotated[int, mapped_column(primary_key=True)]
+intk = Annotated[int, mapped_column(INTEGER)]
 strmy = Annotated[str, mapped_column(VARCHAR(200))]
 boolmy = Annotated[bool, mapped_column(Boolean)]
 
@@ -31,6 +32,7 @@ class ModelsOrm(Base):
     train_folder: Mapped[strmy]
     model_path: Mapped[strmy]
     _classes: Mapped[str] = mapped_column("classes", Text, nullable=True)
+    imgsz: Mapped[intk] 
 
     @property
     def classes(self) -> list:

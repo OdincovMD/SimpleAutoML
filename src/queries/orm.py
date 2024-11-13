@@ -19,9 +19,20 @@ class SyncOrm:
                 session.commit()
             except IntegrityError:
                 session.rollback()  # Отмена изменений при нарушении уникального ограничения
-                
     @staticmethod
     def select_data(folder):
+        with session_factory() as session:
+            query = (
+                select(DatasetOrm.path)
+                .select_from(DatasetOrm).filter(
+                    DatasetOrm.folder == folder
+                )
+            )
+            result = session.execute(query)
+            return result.fetchall()
+                
+    @staticmethod
+    def select_data_not_trained(folder):
         with session_factory() as session:
             query = (
                 select(DatasetOrm.path)
@@ -41,7 +52,7 @@ class SyncOrm:
     
     @staticmethod
     def insert_model(row):
-        file = ModelsOrm(train_folder=row['train_folder'], model_path=row['path'], classes=row['classes'])
+        file = ModelsOrm(train_folder=row['train_folder'], model_path=row['path'], classes=row['classes'], imgsz=row['imgsz'])
         with session_factory() as session:
             session.add(file)
             session.flush()  # Отправляет данные в базу данных, но не сохраняет окончательно
@@ -51,7 +62,7 @@ class SyncOrm:
     def select_model(folder):
         with session_factory() as session:
             query = (
-                select(ModelsOrm.model_path, ModelsOrm._classes)
+                select(ModelsOrm.model_path, ModelsOrm._classes, ModelsOrm.imgsz)
                 .select_from(ModelsOrm)
                 .where(ModelsOrm.train_folder == folder)
             )

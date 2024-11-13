@@ -109,7 +109,6 @@ def load_google_dataset():
                     file_id = file['id']
                     file_name = file['name']
                     file_relative_path = os.path.join(download_path, file['path'])
-
                     # Пропускаем файл, если он уже есть в базе данных
                     if file_relative_path in old_files:
                         file_pbar.update(1)
@@ -154,7 +153,7 @@ def extract_zip(zip_path, extract_to='downloads/'):
     return path
 
 
-def main(load_type):
+def main():
     """
     Основная функция, определяющая тип загрузки данных (Google Диск или zip-архив).
     В зависимости от параметра загружает файлы и папки с Google Диска или распаковывает
@@ -169,7 +168,7 @@ def main(load_type):
     Исключения:
         ValueError: Если передан некорректный тип загрузки.
     """
-    
+    load_type = input('Тип загрузки (drive/zip): ')
     if load_type == 'drive':
         folder = load_google_dataset()
     elif load_type == 'zip':
