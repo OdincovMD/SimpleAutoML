@@ -96,7 +96,7 @@ def load_google_dataset():
                 download_path (str): Локальный путь для сохранения файлов. По умолчанию 'downloads'.
             """
             # Получаем список уже загруженных файлов из базы данных
-            old_files = [el[0] for el in SyncOrm.select_data(folder_name)] 
+            old_files = [el[0] for el in SyncOrm.select_data(download_path)] 
             all_files = get_all_files_in_folder(folder_id)
             total_files = len(all_files)
 
