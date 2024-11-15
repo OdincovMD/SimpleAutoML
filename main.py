@@ -1,7 +1,7 @@
 import os
 import shutil
 from dataset.load_dataset import main as load_main_dataset
-from dataset.spliting import DataSpliting
+from dataset.splitting import DataSpliting
 from ml.model import Model
 from src.queries.orm import SyncOrm
 

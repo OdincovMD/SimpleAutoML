@@ -1,5 +1,5 @@
 from ultralytics import YOLO
-from ml.check_imgsz import Finder
+from ml.check_imgsz import check_imgsz
 import torch
 import os
 import shutil
@@ -32,7 +32,7 @@ class Model:
         Запуск основного этапа обучения модели с параметрами по умолчанию.
         Результаты и веса модели копируются в указанную папку.
         """
-        self.imgsz = self.imgsz or 640 ### переделать тут
+        self.imgsz = check_imgsz(dataset_path=self.dataset_path, model_type=self.model_type)
 
         # Инициализация и запуск обучения модели
         model = YOLO(self.model_type)
