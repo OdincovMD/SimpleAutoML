@@ -1,5 +1,6 @@
 from ultralytics import YOLO
 from ml.check_imgsz import check_imgsz
+from ml.seed import set_seed
 import torch
 import os
 import shutil
@@ -26,6 +27,8 @@ class Model:
         self.folder = folder
         self.imgsz = imgsz
         self.model_path = model_path  # Инициализация атрибута для пути к модели
+        self.random_seed = 42
+        set_seed(self.random_seed)
 
     def train(self):
         """
@@ -43,7 +46,8 @@ class Model:
             device=self.device,
             workers=4,
             project=self.save_dir,
-            imgsz=self.imgsz
+            imgsz=self.imgsz,
+            seed=self.random_seed
         )
 
         # Сохранение весов модели и результатов
@@ -62,7 +66,8 @@ class Model:
             device=self.device,
             workers=4,
             project=self.save_dir,
-            imgsz=self.imgsz
+            imgsz=self.imgsz,
+            seed=self.random_seed
         )
 
         # Сохранение весов модели и результатов

@@ -53,7 +53,7 @@ def load_google_dataset():
         if not target_folders:
             raise EmptyFolderError(user_folder)
 
-        folder_name = input(f"Папка с датасетом: {', '.join(folder['name'] for folder in target_folders)}: ")
+        folder_name = input(f"Папка с датасетом {'| '.join(folder['name'] for folder in target_folders)}: ")
 
         for folder in target_folders:
             if folder['name'] == folder_name:
@@ -144,7 +144,7 @@ def extract_zip(zip_path, extract_to='downloads/'):
     """
     user_folder = input('Введите название вашей папки: ')
     user_task = input('Введите название вашей задачи: ')
-    path = extract_to+user_folder+'/'+user_task
+    path = os.path.join(extract_to, user_folder, user_task)
     if not os.path.exists(path):
         os.makedirs(path)
     
@@ -168,7 +168,7 @@ def main():
     Исключения:
         ValueError: Если передан некорректный тип загрузки.
     """
-    load_type = input('Тип загрузки (drive/zip): ')
+    load_type = input('Тип загрузки drive | zip: ')
     if load_type == 'drive':
         folder = load_google_dataset()
     elif load_type == 'zip':

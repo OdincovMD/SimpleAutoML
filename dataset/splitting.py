@@ -2,6 +2,7 @@ import yaml
 import os
 from exception.file_system import FolderError, TxtFileNotFoundError
 from ml.augmentation import save_with_augmentations
+from ml.seed import set_seed
 import random
 import shutil
 from tqdm import tqdm
@@ -48,6 +49,7 @@ class DataSpliting():
     def __init__(self, path_to_dataset, random_seed=42, shuffle=False):
         self.path_to_dataset = path_to_dataset
         self.random_seed = random_seed
+        set_seed(self.random_seed)
         self.shuffle = shuffle
     
     @staticmethod
@@ -114,10 +116,10 @@ class DataSpliting():
         Возвращает:
         -----------
         str
-            Путь к директории `./dataset`, содержащей подпапки для обучающей, валидационной и (при необходимости) тестовой выборок.
+            Путь к директории `dataset`, содержащей подпапки для обучающей, валидационной и (при необходимости) тестовой выборок.
         """
 
-        self.output_dir = f'./data_root'
+        self.output_dir = f'data_root'
         train_image_dir = os.path.join(self.output_dir, 'train', 'images')
         train_label_dir = os.path.join(self.output_dir, 'train', 'labels')
 
@@ -142,7 +144,6 @@ class DataSpliting():
         image_files = sorted(os.listdir(image_dir))
         
         if self.shuffle:
-            random.seed(self.random_seed)
             random.shuffle(image_files)
 
         num_files = len(image_files)
@@ -205,8 +206,7 @@ class DataSpliting():
             raise ValueError("Все уникальные символы в аннотациях должны быть числами")
         self.create_yaml(self.names, self.output_dir)
     
-    @staticmethod
-    def create_yaml(names, output_folder):
+    def create_yaml(self, names, output_folder):
         """
         Создает YAML-файл с конфигурацией датасета для проекта машинного обучения.
 
@@ -229,7 +229,8 @@ class DataSpliting():
             Если возникает ошибка записи YAML-файла, поднимается исключение IOError с сообщением об ошибке.
         """
         data = {
-            'train': f'{output_folder}/train/images',
+            'train': 'train/images',
+            'val': f'val/images',
             'nc': len(names),
             'names': names
         }
@@ -240,6 +241,7 @@ class DataSpliting():
             print(f"YAML файл успешно создан: {output_path}")
         except Exception as e:
             raise IOError(f"Ошибка при записи YAML-файла: {e}") 
+        self.output_dir = output_path
     
     @staticmethod
     def copy_files(new_train_paths, destination_folder):
@@ -275,9 +277,9 @@ class DataSpliting():
             val_size (float): Доля данных для валидационного набора.
             train_size (float): Доля данных для тренировочного набора (должна быть меньше `val_size`).
         Возвращает:
-            None. Функция сохраняет файлы в структуре директорий: './data_root/train', './data_root/val', './data_root/test'.
+            None. Функция сохраняет файлы в структуре директорий: 'data_root/train', 'data_root/val', 'data_root/test'.
         """
-        self.output_dir = './data_root'
+        self.output_dir = 'data_root'
         train_dir = os.path.join(self.output_dir, 'train')
         val_dir = os.path.join(self.output_dir, 'val')
 
@@ -298,7 +300,6 @@ class DataSpliting():
             class_files = os.listdir(source_dir)
             
             if self.shuffle:
-                random.seed(self.random_seed)
                 random.shuffle(class_files)
 
             num_files = len(class_files)
