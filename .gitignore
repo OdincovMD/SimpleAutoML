@@ -170,3 +170,7 @@ ml/segmentation/yolo11n-seg.pt
 ml/segmentation/*.ipynb
 ml/*.ipynb
 ml/*.pt
+data_root/*
+temp/*
+runs/*
+train_classify/*
