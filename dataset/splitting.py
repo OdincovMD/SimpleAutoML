@@ -1,6 +1,6 @@
 import yaml
 import os
-from exception.file_system import FolderError, TxtFileNotFoundError
+from exception.file_system import FolderError, TxtFileNotFoundError, NotEnoughImagesError
 from ml.augmentation import save_with_augmentations
 from ml.seed import set_seed
 import random
@@ -118,6 +118,9 @@ class DataSpliting():
         str
             Путь к директории `dataset`, содержащей подпапки для обучающей, валидационной и (при необходимости) тестовой выборок.
         """
+
+        if round(len(os.listdir(os.path.join(self.path_to_dataset, 'images'))) * val_size) == 0:
+            raise(NotEnoughImagesError(self.path_to_dataset))
 
         self.output_dir = f'data_root'
         train_image_dir = os.path.join(self.output_dir, 'train', 'images')

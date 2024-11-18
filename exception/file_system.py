@@ -21,3 +21,7 @@ class LabelError(Exception):
 class TxtFileNotFoundError(Exception):
     def __init__(self, filename: str, label_dir: str) -> None:
         super().__init__(f"Файл '{filename}' не найден в папке '{label_dir}'. Операция прервана.")
+
+class NotEnoughImagesError(Exception):
+    def __init__(self, source: str) -> None:
+        super().__init__(f"Папка {source} не содержит достаточного количества изображений для создания валидационной выборок. Операция прервана.")

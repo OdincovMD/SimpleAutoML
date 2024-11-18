@@ -8,9 +8,9 @@ from src.queries.orm import SyncOrm
 # Создаем таблицы, если это необходимо
 SyncOrm.create_tables()
 folder = load_main_dataset()
-dataset_path = os.path.join(folder, 'dataset')
+path_dataset = os.path.join(folder, 'dataset')
 data_root = './data_root'
-test_path = os.path.join(folder, 'test')
+path_test = os.path.join(folder, 'test')
 
 for root, _, files in os.walk(folder):
     if os.path.basename(root) != 'test':
@@ -23,27 +23,27 @@ task = input("Выберите вашу задачу (сегментация | �
 def train_or_retrain(model_type, split_func):
     # Проверка наличия модели для текущей папки
     if not SyncOrm.select_model(folder):
-        data = DataSpliting(dataset_path)
+        data = DataSpliting(path_dataset)
         split_func(data)  # Выполнение сегментации или классификации
-        model = Model(model_type=model_type, dataset_path=os.path.join(os.getcwd(), data.output_dir), folder=folder)
+        model = Model(model_type=model_type, path_dataset=os.path.join(os.getcwd(), data.output_dir), folder=folder)
         model.train()
         SyncOrm.update_data(folder)
-        SyncOrm.insert_model({'train_folder': folder, 'path': model.model_path, 'classes': data.names, 'imgsz': model.imgsz})
+        SyncOrm.insert_model({'train_folder': folder, 'path': model.path_model, 'classes': data.names, 'imgsz': model.imgsz})
 
     # Проверка необходимости дообучения
     elif SyncOrm.select_data_not_trained(folder):
-        model_path, _, imgsz = SyncOrm.select_model(folder)[0]
-        data = DataSpliting(dataset_path)
+        path_model, _, imgsz = SyncOrm.select_model(folder)[0]
+        data = DataSpliting(path_dataset)
         split_func(data)
-        model = Model(model_path=model_path, dataset_path=os.path.join(os.getcwd(), data.output_dir), folder=folder, imgsz=imgsz)
+        model = Model(path_model=path_model, path_dataset=os.path.join(os.getcwd(), data.output_dir), folder=folder, imgsz=imgsz)
         model.additional_train()
         SyncOrm.update_data(folder)
-        SyncOrm.update_model(folder, model.model_path)
+        SyncOrm.update_model(folder, model.path_model)
 
 # Инференс модели на тестовых данных
 def perform_inference(model):
-    for filename in os.listdir(test_path):
-        result = model(os.path.join(test_path, filename))
+    for filename in os.listdir(path_test):
+        result = model(os.path.join(path_test, filename))
         print(result)
 
 # Запуск нужного этапа в зависимости от выбранной задачи
