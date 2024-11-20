@@ -1,6 +1,6 @@
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseDownload
+from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload
 from tqdm import tqdm
 from src.queries.orm import SyncOrm
 from exception.file_system import FolderError, EmptyFolderError, DownloadTypeError, DownloadError
@@ -72,6 +72,9 @@ def load_google_dataset():
             folder_files = results.get('files', [])
 
             for file in folder_files:
+                # Пропускаем обработку, если папка называется 'result'
+                if file['mimeType'] == 'application/vnd.google-apps.folder' and file['name'] == 'result':
+                    continue
                 if file['mimeType'] == 'application/vnd.google-apps.folder':
                     # Рекурсивно обрабатываем подпапку и добавляем путь к папке
                     subfolder_files = get_all_files_in_folder(file['id'])
@@ -132,7 +135,48 @@ def load_google_dataset():
         return f'downloads/{user_folder}/{folder_name}'
     except Exception as error:
         raise DownloadError(traceback.format_exc())
+    
+def upload_to_drive(filepath, drive_path):
+    """
+    Загружает файл на Google Диск по заданному пути.
 
+    Параметры:
+        filepath (str): Путь к файлу для загрузки (локальный файл)
+        drive_path (str): Путь к папке на Google Диске (например, 'folder1/subfolder2')
+    """
+    SERVICE_ACCOUNT_FILE = 'automl_token.json'
+
+    creds = service_account.Credentials.from_service_account_file(
+        SERVICE_ACCOUNT_FILE
+        )
+    service = build('drive', 'v3', credentials=creds)
+
+    folder_id = '1tltCIfYpj28-xbc3Vzc4-CgXRxF2KAsU'
+    for folder_name in drive_path.split('/'):
+        print(f"Обрабатываю папку: {folder_name}")
+        query = f"'{folder_id}' in parents and name = '{folder_name}' and mimeType = 'application/vnd.google-apps.folder'"
+        response = service.files().list(q=query, spaces='drive', fields='files(id, name)').execute()
+        files = response.get('files', [])
+        
+        if not files:
+            print(f"Папка '{folder_name}' не найдена. Создаю новую...")
+            file_metadata = {
+                'name': folder_name,
+                'mimeType': 'application/vnd.google-apps.folder',
+                'parents': [folder_id],
+            }
+            folder = service.files().create(body=file_metadata, fields='id').execute()
+            folder_id = folder.get('id')
+            print(f"Создана папка '{folder_name}' с ID: {folder_id}")
+        else:
+            folder_id = files[0]['id']
+            print(f"Папка '{folder_name}' найдена с ID: {folder_id}")
+
+    file_metadata = {'name': filepath.split('/')[-1], 'parents': [folder_id]}
+    media = MediaFileUpload(filepath)
+    uploaded_file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+
+    print(f"Файл загружен. ID файла: {uploaded_file.get('id')}")
 
 def extract_zip(zip_path, extract_to='downloads/'):
     """

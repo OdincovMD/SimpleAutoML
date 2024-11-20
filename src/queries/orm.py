@@ -72,7 +72,7 @@ class SyncOrm:
     @staticmethod
     def update_model(folder, model_path):
         with session_factory() as session:
-            session.query(ModelsOrm).filter_by(ModelsOrm.train_folder == folder).update({'model_path': model_path})
+            session.query(ModelsOrm).filter(ModelsOrm.train_folder == folder).update({'model_path': model_path})
             session.commit()
     
 

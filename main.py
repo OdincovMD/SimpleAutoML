@@ -11,7 +11,6 @@ folder = load_main_dataset()
 path_dataset = os.path.join(folder, 'dataset')
 data_root = './data_root'
 path_test = os.path.join(folder, 'test')
-
 for root, _, files in os.walk(folder):
     if os.path.basename(root) != 'test':
         for file in files:
@@ -41,23 +40,23 @@ def train_or_retrain(model_type, split_func):
         SyncOrm.update_model(folder, model.path_model)
 
 # Инференс модели на тестовых данных
-def perform_inference(model):
-    for filename in os.listdir(path_test):
-        result = model(os.path.join(path_test, filename))
-        print(result)
+def perform_inference(model, task):
+    path_model, _, imgsz = SyncOrm.select_model(folder)[0]
+    model = Model(path_model=path_model, path_dataset=path_test, folder=folder, imgsz=imgsz)
+    model.predict(task)
 
 # Запуск нужного этапа в зависимости от выбранной задачи
 if task == 'сегментация':
-    train_or_retrain('yolo11m-seg.pt', lambda data: data.spliting_seg())
+    train_or_retrain('yolo11m-seg.pt', lambda data: data.spliting_seg(0.5, 0.5))
     model = SyncOrm.select_model(folder)[0][0] if SyncOrm.select_model(folder) else None
-    if model:
-        perform_inference(model)
+    if model and input('Хотите ли провести тестирование (Y/N): ') == 'Y':
+        perform_inference(model, task)
 
 elif task == 'классификация':
-    train_or_retrain('yolo11m-cls.pt', lambda data: data.spliting_class())
+    train_or_retrain('yolo11m-cls.pt', lambda data: data.spliting_class(0.5, 0.5))
     model = SyncOrm.select_model(folder)[0][0] if SyncOrm.select_model(folder) else None
-    if model:
-        perform_inference(model)
+    if model and input('Хотите ли провести тестирование (Y/N): ') == 'Y':
+        perform_inference(model, task)
 
 # Удаление временных данных
 if os.path.exists(data_root):

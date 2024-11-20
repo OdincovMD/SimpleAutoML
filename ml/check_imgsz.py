@@ -1,6 +1,6 @@
 from ultralytics import YOLO
 
-def check_imgsz(path_dataset: str, model_type: str, epochs: int = 5) -> int:
+def check_imgsz(path_dataset: str, model_type: str, epochs: int = 1) -> int:
     """
     Поиск оптимального размера изображения на конкретном датасете для тренировки yolo.
 

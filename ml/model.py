@@ -1,6 +1,7 @@
 from ultralytics import YOLO
-from check_imgsz import check_imgsz
-from seed import set_seed
+from ml.check_imgsz import check_imgsz
+from dataset.load_dataset import upload_to_drive
+from ml.seed import set_seed
 from PIL import Image
 import torch
 import numpy as np
@@ -25,7 +26,7 @@ class Model:
         self.model_type = model_type
 
         self.path_dataset = path_dataset
-        self.path_test = os.path.join(os.path.split(os.path.split(path_dataset)[0])[0], 'test')
+        self.path_test = path_dataset
         self.path_result = os.path.join(os.path.split(path_dataset)[0], 'results')
         self.path_model = path_model  # Инициализация атрибута для пути к модели
 
@@ -53,7 +54,7 @@ class Model:
         model = YOLO(self.model_type)
         model.train(
             data=self.path_dataset,
-            epochs=2,
+            epochs=1,
             batch=2,
             device=self.device,
             workers=1,
@@ -72,9 +73,9 @@ class Model:
         """
         model = YOLO(self.path_model)
         model.train(
-            epochs=4,
+            epochs=1,
             data=self.path_dataset,
-            batch=2,
+            batch=1,
             device=self.device,
             workers=1,
             project=self.save_dir,
@@ -84,20 +85,22 @@ class Model:
         # Сохранение весов модели и результатов
         self._save_results()
 
-    def predict(self):
+    def predict(self, task):
         """
+        Параметры:
+            task (str): тип задачи.
         Проверка созданной модели на тестовых данных пользователя.
         """
         # Очистка предыдущих результатов обработки для избежания ошибок, и создание "чистой" директории
         shutil.rmtree(self.path_result, ignore_errors=True)
         os.makedirs(self.path_result)
 
-        if 'seg' in self.model_type:
+        if task == 'сегментация':
             os.makedirs(os.path.join(self.path_result, 'masks'))
             for path_image in os.listdir(self.path_test):
                 abs_path_image = os.path.join(self.path_test, path_image)
                 self._process_image_seg(abs_path_image, self.path_result)
-        elif 'cls' in self.model_type:           
+        elif task == 'классификация':           
             for path_image in os.listdir(self.path_test):
                 abs_path_image = os.path.join(self.path_test, path_image)
                 self._process_image_cls(abs_path_image, self.path_result)
@@ -131,35 +134,38 @@ class Model:
         image_name, image_ext = os.path.splitext(os.path.basename(path_image))
 
         model = YOLO(self.path_model)
-        result = model(path_image)[0]
-
+        result = model(path_image, project=self.save_dir)[0]
         image_orig = result.orig_img
         h_or, w_or = result.orig_shape
 
         image = Image.fromarray(image_orig)
         image = image.resize((640, 640))
-    
         classes_names = result.names
         classes = result.boxes.cls.cpu().numpy()
         masks = result.masks.data.cpu().numpy()
 
         for i, mask in enumerate(masks):
-            mask = Image.fromarray(mask)            
+            mask = Image.fromarray((mask * 255).astype(np.uint8))
             mask_resized = mask.resize((w_or, h_or))
             
+            mask_resized_np = np.array(mask_resized)
             color = self.colors[int(classes[i]) % len(self.colors)]
             color_mask = np.zeros((h_or, w_or, 3), dtype=np.uint8)
-            color_mask[mask_resized > 0] = color
+            color_mask[mask_resized_np > 0] = color
             color_mask_img = Image.fromarray(color_mask)
 
-            mask_filename = os.path.join(path_results, 'masks', image_name, f"{classes_names[classes[i]]}_{i}{image_ext}")
+            mask_filename = os.path.join(path_results, 'masks', f"{classes_names[int(classes[i])]}_{i}{image_ext}")
             color_mask_img.save(mask_filename)
 
-            image_orig = Image.fromarray(image_orig*1.0 + color_mask*0.5)
+            image_orig = np.array(image_orig).astype(np.float32)
+            blended_image = image_orig * 1.0 + color_mask * 0.5
+            image_orig = np.clip(blended_image, 0, 255).astype(np.uint8) 
 
-        new_path_image = os.path.join(path_results, os.path.basename(path_image))
-        new_path_image = os.path.splitext(new_path_image)[0] + '_yolo' + os.path.splitext(new_path_image)[1]
-        image_orig.save(new_path_image)
+        new_path_image = os.path.join(path_results, f"{image_name}_yolo{image_ext}")
+        final_image = Image.fromarray(image_orig)
+
+        final_image.save(new_path_image)
+        upload_to_drive(new_path_image, os.path.join(*os.path.join(self.folder, 'result').split(os.sep)[1:]))
 
     def _process_image_cls(self, path_image: str, path_results: str):
         """
@@ -171,17 +177,11 @@ class Model:
         image_name, _ = os.path.splitext(os.path.basename(path_image))
 
         model = YOLO(self.path_model)
-        result = model(path_image)[0]
+        result = model(path_image, project=self.save_dir)[0]
 
         classes_names = result.names
-        with open(os.path.join(path_results, f"{image_name}_pred.txt"),
-                  mode="wt", encoding='utf-8') as pred:
-            pred.write({classes_names[result.top1]})
-
-# if __name__ == '__main__':
-#     shutil.rmtree(r'D:\Mine\Basics\Coding\Python_projects\SimpleAutoML\runs')
-#     model = Model(r'D:\Mine\Basics\Coding\Python_projects\SimpleAutoML\data_root\Коля\Pothole\dataset\data.yaml',
-#                 r'D:\Mine\Basics\Coding\Python_projects\SimpleAutoML\temp',
-#                 'yolo11n-seg.pt', r'D:\Mine\Basics\Coding\Python_projects\SimpleAutoML\temp', None)
-#     model.train()
-#     model.predict()
+        filename = os.path.join(path_results, f"{image_name}_pred.txt")
+        with open(filename, mode="wt", encoding='utf-8') as pred:
+            pred.write(classes_names[np.argmax(result.probs.data.cpu().numpy())])
+        upload_to_drive(filename, os.path.join(*os.path.join(self.folder, 'result').split(os.sep)[1:]))
+        
