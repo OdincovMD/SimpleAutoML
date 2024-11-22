@@ -24,8 +24,9 @@ class TxtFileNotFoundError(Exception):
 
 class NotEnoughImagesError(Exception):
     def __init__(self, source: str) -> None:
-        super().__init__(f"Папка {source} не содержит достаточного количества изображений для создания валидационной выборок. Операция прервана.")
+        super().__init__(f"Папка {source} не содержит достаточного количества изображений для создания валидационной выборки. Операция прервана.")
         
 class TaskSelectionError(Exception):
     def __init__(self, task):
         super().__init__(f"Некорректный выбор задачи: {task}. Допустимые значения: 'сегментация' или 'классификация'.")
+

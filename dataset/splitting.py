@@ -117,9 +117,14 @@ class DataSpliting():
         -----------
         str
             Путь к директории `dataset`, содержащей подпапки для обучающей, валидационной и (при необходимости) тестовой выборок.
+
+        Исключения:
+        -----------
+        NotEnoughImagesError
+            Возникает, если количество изображений в датасете недостаточно для добавления в валидационную выборку хотя бы одного изображения.
         """
 
-        if round(len(os.listdir(os.path.join(self.path_to_dataset, 'images'))) * val_size) == 0:
+        if self._get_valsize(val_size) == 0:
             raise(NotEnoughImagesError(self.path_to_dataset))
 
         self.output_dir = f'data_root'
@@ -318,3 +323,13 @@ class DataSpliting():
                 augment_factor = 0
             save_with_augmentations(train_files, source_dir, train_dir, class_name, desc=f"dir: train | class: {class_name}", augment_factor=augment_factor)
             save_with_augmentations(val_files, source_dir, val_dir, class_name, desc=f"dir: val | class: {class_name}")
+
+    def _get_valsize(self, val_size):
+        '''
+        Вспомогательная функция для определения размера валидационной выборки.
+        '''
+        image_dir = os.path.join(self.path_to_dataset, 'images')
+        image_files = os.listdir(image_dir)
+        num_files = len(image_files)
+        valsize = int(num_files * val_size)
+        return valsize

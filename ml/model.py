@@ -135,14 +135,23 @@ class Model:
 
         model = YOLO(self.path_model)
         result = model(path_image, project=self.save_dir)[0]
+
+        try:
+            classes_names = result.names
+            classes = result.boxes.cls.cpu().numpy()
+            masks = result.masks.data.cpu().numpy()
+        except Exception as e:
+            image = Image.fromarray(path_image)
+            new_path_image = os.path.join(path_results, f"{image_name}_yolo{image_ext}")
+            image.save(new_path_image)
+            upload_to_drive(new_path_image, os.path.join(*os.path.join(self.folder, 'result').split(os.sep)[1:]))
+            return
+        
         image_orig = result.orig_img
         h_or, w_or = result.orig_shape
 
         image = Image.fromarray(image_orig)
         image = image.resize((640, 640))
-        classes_names = result.names
-        classes = result.boxes.cls.cpu().numpy()
-        masks = result.masks.data.cpu().numpy()
 
         for i, mask in enumerate(masks):
             mask = Image.fromarray((mask * 255).astype(np.uint8))
@@ -177,9 +186,17 @@ class Model:
         image_name, _ = os.path.splitext(os.path.basename(path_image))
 
         model = YOLO(self.path_model)
-        result = model(path_image, project=self.save_dir)[0]
 
-        classes_names = result.names
+        try:
+            result = model(path_image, project=self.save_dir)[0]
+            classes_names = result.names
+        except Exception as e:
+            filename = os.path.join(path_results, f"{image_name}_pred.txt")
+            with open(filename, mode="wt", encoding='utf-8') as pred:
+                pred.write('Null')
+            upload_to_drive(filename, os.path.join(*os.path.join(self.folder, 'result').split(os.sep)[1:]))
+            return        
+        
         filename = os.path.join(path_results, f"{image_name}_pred.txt")
         with open(filename, mode="wt", encoding='utf-8') as pred:
             pred.write(classes_names[np.argmax(result.probs.data.cpu().numpy())])
