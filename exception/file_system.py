@@ -1,14 +1,14 @@
 class FolderError(Exception):
-    def __init__(self, folder: str) -> None:
-        super().__init__(f"Указанное название папки не существует. Проверьте правильность названия и наличие папки: '{folder}'")
+    def __init__(self) -> None:
+        super().__init__(f"Указанное название папки не существует. Проверьте правильность названия и наличие папки")
 
 class EmptyFolderError(Exception):
     def __init__(self, folder: str) -> None:
         super().__init__(f"На уровне папки '{folder}' не найдено вложенных папок.")
 
 class DownloadTypeError(Exception):
-    def __init__(self, load_type: str) -> None:
-        super().__init__(f"Неверный тип загрузки: '{load_type}'. Доступные варианты: 'drive' или 'zip'.")
+    def __init__(self) -> None:
+        super().__init__(f"Неверный тип загрузки. Доступные варианты: 'drive' или 'zip'.")
 
 class DownloadError(Exception):
     def __init__(self, *args: str) -> None:
@@ -25,3 +25,7 @@ class TxtFileNotFoundError(Exception):
 class NotEnoughImagesError(Exception):
     def __init__(self, source: str) -> None:
         super().__init__(f"Папка {source} не содержит достаточного количества изображений для создания валидационной выборок. Операция прервана.")
+        
+class TaskSelectionError(Exception):
+    def __init__(self, task):
+        super().__init__(f"Некорректный выбор задачи: {task}. Допустимые значения: 'сегментация' или 'классификация'.")

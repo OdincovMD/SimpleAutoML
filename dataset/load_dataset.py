@@ -53,14 +53,26 @@ def load_google_dataset():
         if not target_folders:
             raise EmptyFolderError(user_folder)
 
-        folder_name = input(f"Папка с датасетом {'| '.join(folder['name'] for folder in target_folders)}: ")
-
-        for folder in target_folders:
-            if folder['name'] == folder_name:
-                folder_id = folder['id']
-                break
+        folders = [f"{i}. {folder['name']}" for i, folder in enumerate(target_folders, start=1)]
+    
+        for attempt in range(3):
+            print("Доступные папки с датасетом:")
+            print('\n'.join(folders))
+            
+            folder_name = input(f"Введите номер папки (1-{len(target_folders)}): ").strip()
+            
+            if folder_name.isdigit():
+                folder_index = int(folder_name) - 1
+                
+                if 0 <= folder_index < len(target_folders):
+                    folder_id = target_folders[folder_index]['id']
+                    folder_name = target_folders[folder_index]['name']
+                    print(f"Вы выбрали папку: {target_folders[folder_index]['name']}")
+                    break
+            print(f"Попытка {attempt + 1}/3: Некорректный ввод. Попробуйте ещё раз.")
         else:
-            raise FolderError(folder_name)
+            raise FolderError()
+
 
         def get_all_files_in_folder(folder_id):
             """
@@ -110,10 +122,10 @@ def load_google_dataset():
             with tqdm(total=total_files, desc="Скачивание файлов", unit="файл") as file_pbar:
                 for file in all_files:
                     file_id = file['id']
-                    file_name = file['name']
                     file_relative_path = os.path.join(download_path, file['path'])
                     # Пропускаем файл, если он уже есть в базе данных
                     if file_relative_path in old_files:
+                        print("Файл уже скачан. Пропуск.")
                         file_pbar.update(1)
                         continue
 
@@ -196,27 +208,25 @@ def extract_zip(zip_path, extract_to='downloads/'):
         zip_ref.extractall(path)
     return path
 
-
 def main():
     """
     Основная функция, определяющая тип загрузки данных (Google Диск или zip-архив).
     В зависимости от параметра загружает файлы и папки с Google Диска или распаковывает
     zip-архив в локальную директорию.
 
-    Аргументы:
-        load_type (str): Тип загрузки, 'drive' для Google Диска и 'zip' для zip-архива.
-
     Возвращает:
         str: Название загруженной или извлеченной папки.
-
-    Исключения:
-        ValueError: Если передан некорректный тип загрузки.
     """
-    load_type = input('Тип загрузки drive | zip: ')
-    if load_type == 'drive':
-        folder = load_google_dataset()
-    elif load_type == 'zip':
-        folder = extract_zip(input('Название вашего zip-архива: '))
+    for attempt in range(3):
+        load_type = input('Тип загрузки:\n1. drive\n2. zip\n').strip().lower()
+        if load_type == '1':
+            folder = load_google_dataset()
+            return folder
+        elif load_type == '2':
+            zip_name = input('Название вашего zip-архива: ').strip()
+            folder = extract_zip(zip_name)
+            return folder
+        else:
+            print(f"Попытка {attempt + 1}/3: Некорректный тип загрузки. Попробуйте ещё раз.")
     else:
-        raise DownloadTypeError(load_type)
-    return folder
+        raise DownloadTypeError()
