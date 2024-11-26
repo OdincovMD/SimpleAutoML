@@ -7,6 +7,7 @@ import torch
 import numpy as np
 import os
 import shutil
+from exception.file_system import NoTestDataError
 
 class Model:
     """
@@ -54,7 +55,7 @@ class Model:
         model = YOLO(self.model_type)
         model.train(
             data=self.path_dataset,
-            epochs=1,
+            epochs=50,
             batch=2,
             device=self.device,
             workers=1,
@@ -73,7 +74,7 @@ class Model:
         """
         model = YOLO(self.path_model)
         model.train(
-            epochs=1,
+            epochs=10,
             data=self.path_dataset,
             batch=1,
             device=self.device,
@@ -90,20 +91,25 @@ class Model:
         Параметры:
             task (str): тип задачи.
         Проверка созданной модели на тестовых данных пользователя.
+
+        Исключения:
+            NoTestDataError: вызывается, если пользователь не предоставил тестовые изображения.
         """
         # Очистка предыдущих результатов обработки для избежания ошибок, и создание "чистой" директории
         shutil.rmtree(self.path_result, ignore_errors=True)
         os.makedirs(self.path_result)
+        if not os.listdir(self.path_test):
+            raise(NoTestDataError())
 
         if task == 'сегментация':
             os.makedirs(os.path.join(self.path_result, 'masks'))
             for path_image in os.listdir(self.path_test):
                 abs_path_image = os.path.join(self.path_test, path_image)
-                self._process_image_seg(abs_path_image, self.path_result)
+                self._process_image_seg(abs_path_image)
         elif task == 'классификация':           
             for path_image in os.listdir(self.path_test):
                 abs_path_image = os.path.join(self.path_test, path_image)
-                self._process_image_cls(abs_path_image, self.path_result)
+                self._process_image_cls(abs_path_image)
 
     def _save_results(self):
         """
@@ -124,12 +130,11 @@ class Model:
         # Удаление временной папки с результатами обучения
         shutil.rmtree(self.save_dir, ignore_errors=True)
 
-    def _process_image_seg(self, path_image: str, path_results: str):
+    def _process_image_seg(self, path_image: str):
         """
         Вспомогательный метод для обработки изображения в задаче сегментации.
         Параметры:
             path_image (str): абсолютный путь до тестируемого изображения
-            path_results (str): абсолютный путь до директории для сохранения полученных результатов
         """
         image_name, image_ext = os.path.splitext(os.path.basename(path_image))
 
@@ -141,8 +146,8 @@ class Model:
             classes = result.boxes.cls.cpu().numpy()
             masks = result.masks.data.cpu().numpy()
         except Exception as e:
-            image = Image.fromarray(path_image)
-            new_path_image = os.path.join(path_results, f"{image_name}_yolo{image_ext}")
+            image = Image.open(path_image)
+            new_path_image = os.path.join(self.path_result, f"{image_name}_yolo{image_ext}")
             image.save(new_path_image)
             upload_to_drive(new_path_image, os.path.join(*os.path.join(self.folder, 'result').split(os.sep)[1:]))
             return
@@ -163,41 +168,40 @@ class Model:
             color_mask[mask_resized_np > 0] = color
             color_mask_img = Image.fromarray(color_mask)
 
-            mask_filename = os.path.join(path_results, 'masks', f"{classes_names[int(classes[i])]}_{i}{image_ext}")
+            mask_filename = os.path.join(self.path_result, 'masks', f"{classes_names[int(classes[i])]}_{i}{image_ext}")
             color_mask_img.save(mask_filename)
 
             image_orig = np.array(image_orig).astype(np.float32)
             blended_image = image_orig * 1.0 + color_mask * 0.5
             image_orig = np.clip(blended_image, 0, 255).astype(np.uint8) 
 
-        new_path_image = os.path.join(path_results, f"{image_name}_yolo{image_ext}")
+        new_path_image = os.path.join(self.path_result, f"{image_name}_yolo{image_ext}")
         final_image = Image.fromarray(image_orig)
 
         final_image.save(new_path_image)
         upload_to_drive(new_path_image, os.path.join(*os.path.join(self.folder, 'result').split(os.sep)[1:]))
 
-    def _process_image_cls(self, path_image: str, path_results: str):
+    def _process_image_cls(self, path_image: str):
         """
         Вспомогательный метод для обработки изображения в задаче классификации.
         Параметры:
             path_image (str): абсолютный путь до тестируемого изображения
-            path_results (str): абсолютный путь до директории для сохранения полученных результатов
         """
         image_name, _ = os.path.splitext(os.path.basename(path_image))
 
         model = YOLO(self.path_model)
+        result = model(path_image, project=self.save_dir)[0]
 
         try:
-            result = model(path_image, project=self.save_dir)[0]
             classes_names = result.names
         except Exception as e:
-            filename = os.path.join(path_results, f"{image_name}_pred.txt")
+            filename = os.path.join(self.path_result, f"{image_name}_pred.txt")
             with open(filename, mode="wt", encoding='utf-8') as pred:
                 pred.write('Null')
             upload_to_drive(filename, os.path.join(*os.path.join(self.folder, 'result').split(os.sep)[1:]))
             return        
         
-        filename = os.path.join(path_results, f"{image_name}_pred.txt")
+        filename = os.path.join(self.path_result, f"{image_name}_pred.txt")
         with open(filename, mode="wt", encoding='utf-8') as pred:
             pred.write(classes_names[np.argmax(result.probs.data.cpu().numpy())])
         upload_to_drive(filename, os.path.join(*os.path.join(self.folder, 'result').split(os.sep)[1:]))

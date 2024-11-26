@@ -7,7 +7,6 @@ from ml.model import Model
 from src.queries.orm import SyncOrm
 from exception.file_system import TaskSelectionError
 
-
 def train_or_retrain(model_type, split_func, folder, path_dataset):
     """
     Универсальная функция для обучения или дообучения модели.
@@ -67,7 +66,7 @@ def main():
         train_or_retrain('yolo11m-seg.pt', lambda data: data.spliting_seg(0.5, 0.5), folder, path_dataset)
         model = SyncOrm.select_model(folder)[0][0] if SyncOrm.select_model(folder) else None
         if model and input('Хотите ли провести тестирование (Y/N): ') == 'Y':
-            perform_inference(model, task)
+            perform_inference(model, task, folder, path_test)
     
     elif task == 'классификация':
         train_or_retrain('yolo11m-cls.pt', lambda data: data.spliting_class(0.5, 0.5), folder, path_dataset)

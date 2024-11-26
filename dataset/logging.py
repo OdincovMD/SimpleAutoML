@@ -1,5 +1,6 @@
 import logging
 import sys
+import os
 
 class StreamToLoggerAndStdout:
     """Перенаправляет вывод в логгер и сохраняет вывод в оригинальный stdout/stderr"""
@@ -20,6 +21,8 @@ class StreamToLoggerAndStdout:
         self.original_stream.flush()
 
 def setup_logger():
+
+    os.remove('app.log')
     # Настраиваем логгер
     logger = logging.getLogger()
     logger.handlers.clear()  # Удаляем старые обработчики

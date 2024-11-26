@@ -41,7 +41,7 @@ def load_google_dataset():
         ).execute()
 
         if not all_files['files']:
-            raise FolderError(user_folder)
+            raise FolderError()
         
         parent_folder_id = all_files['files'][0]['id']
 
@@ -99,7 +99,7 @@ def load_google_dataset():
 
             return files
 
-        def download_files_from_folder(folder_id, download_path=f'downloads/{user_folder}/{folder_name}'):
+        def download_files_from_folder(folder_id, download_path=os.path.join('downloads', user_folder, folder_name)):
             """
             Скачивает все файлы из заданной папки на Google Диске в указанную локальную директорию.
             Работает рекурсивно, если обнаруживает подпапки. Пропускает файлы, которые уже есть в базе данных.
@@ -144,7 +144,7 @@ def load_google_dataset():
 
         download_files_from_folder(folder_id)
 
-        return f'downloads/{user_folder}/{folder_name}'
+        return os.path.join('downloads', user_folder, folder_name)
     except Exception as error:
         raise DownloadError(traceback.format_exc())
     
@@ -164,7 +164,7 @@ def upload_to_drive(filepath, drive_path):
     service = build('drive', 'v3', credentials=creds)
 
     folder_id = '1tltCIfYpj28-xbc3Vzc4-CgXRxF2KAsU'
-    for folder_name in drive_path.split('/'):
+    for folder_name in drive_path.split(os.sep):
         print(f"Обрабатываю папку: {folder_name}")
         query = f"'{folder_id}' in parents and name = '{folder_name}' and mimeType = 'application/vnd.google-apps.folder'"
         response = service.files().list(q=query, spaces='drive', fields='files(id, name)').execute()
@@ -184,13 +184,13 @@ def upload_to_drive(filepath, drive_path):
             folder_id = files[0]['id']
             print(f"Папка '{folder_name}' найдена с ID: {folder_id}")
 
-    file_metadata = {'name': filepath.split('/')[-1], 'parents': [folder_id]}
+    file_metadata = {'name': filepath.split(os.sep)[-1], 'parents': [folder_id]}
     media = MediaFileUpload(filepath)
     uploaded_file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
 
     print(f"Файл загружен. ID файла: {uploaded_file.get('id')}")
 
-def extract_zip(zip_path, extract_to='downloads/'):
+def extract_zip(zip_path, extract_to=f'downloads{os.sep}'):
     """
     Извлекает содержимое zip-архива в указанную директорию.
 

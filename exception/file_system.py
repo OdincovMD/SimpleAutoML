@@ -30,3 +30,7 @@ class TaskSelectionError(Exception):
     def __init__(self, task):
         super().__init__(f"Некорректный выбор задачи: {task}. Допустимые значения: 'сегментация' или 'классификация'.")
 
+class NoTestDataError(Exception):
+    def __init__(self):
+        super().__init__(f"Директория не содержит тестовых изображений. Выполнение завершено.")
+
