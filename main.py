@@ -45,7 +45,7 @@ def main():
     SyncOrm.create_tables()
     folder = load_main_dataset()
     path_dataset = os.path.join(folder, 'dataset')
-    data_root = './data_root'
+    data_root = 'data_root'
     path_test = os.path.join(folder, 'test')
     for root, _, files in os.walk(folder):
         if os.path.basename(root) != 'test':
@@ -63,13 +63,13 @@ def main():
         raise TaskSelectionError(task)
     
     if task == 'сегментация':
-        train_or_retrain('yolo11m-seg.pt', lambda data: data.spliting_seg(0.5, 0.5), folder, path_dataset)
+        train_or_retrain('yolo11m-seg.pt', lambda data: data.spliting_seg(), folder, path_dataset)
         model = SyncOrm.select_model(folder)[0][0] if SyncOrm.select_model(folder) else None
         if model and input('Хотите ли провести тестирование (Y/N): ') == 'Y':
             perform_inference(model, task, folder, path_test)
     
     elif task == 'классификация':
-        train_or_retrain('yolo11m-cls.pt', lambda data: data.spliting_class(0.5, 0.5), folder, path_dataset)
+        train_or_retrain('yolo11m-cls.pt', lambda data: data.spliting_class(), folder, path_dataset)
         model = SyncOrm.select_model(folder)[0][0] if SyncOrm.select_model(folder) else None
         if model and input('Хотите ли провести тестирование (Y/N): ') == 'Y':
             perform_inference(model, task, folder, path_test)

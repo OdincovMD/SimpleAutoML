@@ -124,7 +124,7 @@ class DataSpliting():
             Возникает, если количество изображений в датасете недостаточно для добавления в валидационную выборку хотя бы одного изображения.
         """
 
-        if self._get_valsize(val_size) == 0:
+        if self._get_valsize(val_size, os.path.join(self.path_to_dataset, 'images')) == 0:
             raise(NotEnoughImagesError(self.path_to_dataset))
 
         self.output_dir = f'data_root'
@@ -237,8 +237,8 @@ class DataSpliting():
             Если возникает ошибка записи YAML-файла, поднимается исключение IOError с сообщением об ошибке.
         """
         data = {
-            'train': 'train/images',
-            'val': f'val/images',
+            'train': os.path.join('train', 'images'),
+            'val': os.path.join('val', 'images'),
             'nc': len(names),
             'names': names
         }
@@ -310,6 +310,10 @@ class DataSpliting():
             if self.shuffle:
                 random.shuffle(class_files)
 
+            if self._get_valsize(val_size, source_dir) == 0:
+                raise(NotEnoughImagesError(self.path_to_dataset))
+
+
             num_files = len(class_files)
             train_end = int(num_files * train_size)
             val_end = train_end + int(num_files * val_size)
@@ -324,12 +328,23 @@ class DataSpliting():
             save_with_augmentations(train_files, source_dir, train_dir, class_name, desc=f"dir: train | class: {class_name}", augment_factor=augment_factor)
             save_with_augmentations(val_files, source_dir, val_dir, class_name, desc=f"dir: val | class: {class_name}")
 
-    def _get_valsize(self, val_size):
+    def _get_valsize(self, val_size, image_dir):
         '''
         Вспомогательная функция для определения размера валидационной выборки.
+        Параметры:
+        -----------
+        val_size : float
+            Доля данных, выделяемая на валидацию.
+        image_dir : str
+            Путь к директории, содержащей изображения, которые будут 
+            разделены на тренировочную и валидационную выборки.
+
+        Возвращает:
+        -----------
+        int
+            Число изображений, выделяемых для валидационной выборки.
         '''
-        image_dir = os.path.join(self.path_to_dataset, 'images')
         image_files = os.listdir(image_dir)
         num_files = len(image_files)
         valsize = int(num_files * val_size)
-        return valsize
+        return valsize      

@@ -199,7 +199,9 @@ def extract_zip(zip_path, extract_to=f'downloads{os.sep}'):
         extract_to (str): Путь, куда будут извлечены файлы. По умолчанию 'downloads'.
     """
     user_folder = input('Введите название вашей папки: ')
+    print(f'Вы ввели: {user_folder}')
     user_task = input('Введите название вашей задачи: ')
+    print(f'Вы ввели: {user_task}')
     path = os.path.join(extract_to, user_folder, user_task)
     if not os.path.exists(path):
         os.makedirs(path)

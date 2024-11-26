@@ -1,7 +1,5 @@
 from ultralytics import YOLO
 import shutil
-import os
-import sys
 
 def check_imgsz(path_dataset: str, model_type: str, epochs: int = 10) -> int:
     """
@@ -22,7 +20,7 @@ def check_imgsz(path_dataset: str, model_type: str, epochs: int = 10) -> int:
             imgsz=img_size,
             epochs=epochs,
             project='train_classify',
-            batch=4,
+            batch=8,
             )
         metrics = model.val()
         if 'cls' in model_type:

@@ -55,10 +55,10 @@ class Model:
         model = YOLO(self.model_type)
         model.train(
             data=self.path_dataset,
-            epochs=50,
-            batch=2,
+            epochs=100,
+            batch=8,
             device=self.device,
-            workers=1,
+            workers=4,
             project=self.save_dir,
             imgsz=self.imgsz,
             seed=self.random_seed
@@ -76,9 +76,9 @@ class Model:
         model.train(
             epochs=10,
             data=self.path_dataset,
-            batch=1,
+            batch=8,
             device=self.device,
-            workers=1,
+            workers=4,
             project=self.save_dir,
             imgsz=self.imgsz,
             seed=self.random_seed
