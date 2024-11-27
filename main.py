@@ -42,13 +42,13 @@ def perform_inference(model, task, folder, path_test):
 
 def main():
     # Создаем таблицы, если это необходимо
-    SyncOrm.create_tables()
+    # SyncOrm.create_tables()
     folder = load_main_dataset()
     path_dataset = os.path.join(folder, 'dataset')
     data_root = 'data_root'
     path_test = os.path.join(folder, 'test')
     for root, _, files in os.walk(folder):
-        if os.path.basename(root) != 'test':
+        if os.path.basename(root) not in ['test', 'results', 'masks']:
             for file in files:
                 SyncOrm.insert_data({'train_folder': folder, 'path': os.path.join(root, file)})
 

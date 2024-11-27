@@ -202,13 +202,14 @@ def extract_zip(zip_path, extract_to=f'downloads{os.sep}'):
     print(f'Вы ввели: {user_folder}')
     user_task = input('Введите название вашей задачи: ')
     print(f'Вы ввели: {user_task}')
-    path = os.path.join(extract_to, user_folder, user_task)
+    path = os.path.join(extract_to, user_folder)
+    
     if not os.path.exists(path):
         os.makedirs(path)
     
     with zipfile.ZipFile(zip_path+'.zip', 'r') as zip_ref:
         zip_ref.extractall(path)
-    return path
+    return os.path.join(path, user_task)
 
 def main():
     """

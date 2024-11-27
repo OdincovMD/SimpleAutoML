@@ -21,8 +21,8 @@ class StreamToLoggerAndStdout:
         self.original_stream.flush()
 
 def setup_logger():
-
-    os.remove('app.log')
+    if os.path.exists('app.log'):
+        os.remove('app.log')        
     # Настраиваем логгер
     logger = logging.getLogger()
     logger.handlers.clear()  # Удаляем старые обработчики

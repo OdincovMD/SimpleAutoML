@@ -28,7 +28,9 @@ class Model:
 
         self.path_dataset = path_dataset
         self.path_test = path_dataset
-        self.path_result = os.path.join(os.path.split(path_dataset)[0], 'results')
+        if os.path.exists(path := os.path.join(os.path.split(path_dataset)[0], 'results')):
+            shutil.rmtree(path)
+        self.path_result = path
         self.path_model = path_model  # Инициализация атрибута для пути к модели
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -170,7 +172,8 @@ class Model:
 
             mask_filename = os.path.join(self.path_result, 'masks', f"{classes_names[int(classes[i])]}_{i}{image_ext}")
             color_mask_img.save(mask_filename)
-
+            upload_to_drive(mask_filename, os.path.join(*os.path.join(self.folder, 'result', 'masks').split(os.sep)[1:]))
+            
             image_orig = np.array(image_orig).astype(np.float32)
             blended_image = image_orig * 1.0 + color_mask * 0.5
             image_orig = np.clip(blended_image, 0, 255).astype(np.uint8) 
