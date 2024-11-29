@@ -126,13 +126,8 @@ classification/            # Ваша задача
     venv\Scripts\activate
     ```
 5. Установите зависимости:
-    - Для Linux/macOS:
     ```bash 
     pip install -r requirements.txt
-    ```
-    - Для Windows:
-    ```bash 
-    pip install -r requirements_win.txt
     ```
 ## Лицензия
 
