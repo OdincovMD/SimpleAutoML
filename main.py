@@ -52,8 +52,10 @@ def main():
             for file in files:
                 SyncOrm.insert_data({'train_folder': folder, 'path': os.path.join(root, file)})
 
-    if 'images' in os.listdir(path_dataset):
-        task = 'сегментация'
+    if 'images' in os.listdir(path_dataset) \
+        and 'labels' in os.listdir(path_dataset) \
+        and os.listdir(os.path.join(path_dataset, 'labels'))[0].endswith(".txt"):
+            task = 'сегментация'
     else:
         task = 'классификация'
 
