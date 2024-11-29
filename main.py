@@ -5,7 +5,7 @@ from dataset.splitting import DataSpliting
 from dataset.logging import setup_logger
 from ml.model import Model
 from src.queries.orm import SyncOrm
-from exception.file_system import TaskSelectionError
+from exception.file_system import IncorrectDatasetFormatError, TaskSelectionError
 
 def train_or_retrain(model_type, split_func, folder, path_dataset):
     """
@@ -52,16 +52,21 @@ def main():
             for file in files:
                 SyncOrm.insert_data({'train_folder': folder, 'path': os.path.join(root, file)})
 
-    for attempt in range(3):
-        task = input("Выберите вашу задачу:\n1. Cегментация\n2. Kлассификация\n").strip().lower()
-    
-        if task in ['1', '2']:
-            task = ['сегментация', 'классификация'][int(task) - 1]
-            break
-        print(f"Попытка {attempt + 1}/3: Некорректный выбор задачи. Попробуйте снова.")
+    if 'images' in os.listdir(path_dataset):
+        task = 'сегментация'
     else:
-        raise TaskSelectionError(task)
+        task = 'классификация'
+
+    # for attempt in range(3):
+    #     task = input("Выберите вашу задачу:\n1. Cегментация\n2. Kлассификация\n").strip().lower()
     
+    #     if task in ['1', '2']:
+    #         task = ['сегментация', 'классификация'][int(task) - 1]
+    #         break
+    #     print(f"Попытка {attempt + 1}/3: Некорректный выбор задачи. Попробуйте снова.")
+    # else:
+    #     raise TaskSelectionError(task)
+
     if task == 'сегментация':
         train_or_retrain('yolo11m-seg.pt', lambda data: data.spliting_seg(), folder, path_dataset)
         model = SyncOrm.select_model(folder)[0][0] if SyncOrm.select_model(folder) else None
@@ -82,7 +87,7 @@ if __name__ == "__main__":
     try:
         setup_logger()
         main()
-    except TaskSelectionError as e:
+    except IncorrectDatasetFormatError as e:
         print(e)
     except Exception as e:
         print(f"Произошла ошибка: {e}")
