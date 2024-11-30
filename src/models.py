@@ -7,7 +7,7 @@ from typing import Annotated
 metadata_obj = MetaData()
 
 # Конструкторы типов для упрощения определения колонок
-intpk = Annotated[int, mapped_column(primary_key=True)]  # Целочисленный первичный ключ
+intpk = Annotated[int, mapped_column(primary_key=True, autoincrement=True)]  # Целочисленный первичный ключ
 intk = Annotated[int, mapped_column(INTEGER)]           # Обычная целочисленная колонка
 strmy = Annotated[str, mapped_column(VARCHAR(200))]     # Строковая колонка длиной до 200 символов
 boolmy = Annotated[bool, mapped_column(Boolean)]        # Булевая колонка
@@ -60,6 +60,7 @@ class ModelsOrm(Base):
     id: Mapped[intpk]
     train_folder: Mapped[strmy]
     model_path: Mapped[strmy]
+    version: Mapped[intk]
     _classes: Mapped[str] = mapped_column("classes", Text, nullable=True)
     imgsz: Mapped[intk]
 

@@ -59,7 +59,7 @@ class SyncOrm:
     @staticmethod
     def insert_model(row):
         """Вставка данных о модели в базу данных."""
-        file = ModelsOrm(train_folder=row['train_folder'], model_path=row['path'], classes=row['classes'], imgsz=row['imgsz'])
+        file = ModelsOrm(train_folder=row['train_folder'], model_path=row['path'], version=row['version'], classes=row['classes'], imgsz=row['imgsz'])
         with session_factory() as session:
             session.add(file)
             session.flush()  # Отправка данных в базу, но без окончательной фиксации
@@ -70,16 +70,12 @@ class SyncOrm:
         """Выборка модели по папке обучения."""
         with session_factory() as session:
             query = (
-                select(ModelsOrm.model_path, ModelsOrm._classes, ModelsOrm.imgsz)
+                select(ModelsOrm.model_path, ModelsOrm.version, ModelsOrm._classes, ModelsOrm.imgsz)
                 .select_from(ModelsOrm)
                 .where(ModelsOrm.train_folder == folder)
             )
             result = session.execute(query)
-            return result.fetchall()
-
-    @staticmethod
-    def update_model(folder, model_path):
-        """Обновление пути модели для определенной папки обучения."""
-        with session_factory() as session:
-            session.query(ModelsOrm).filter(ModelsOrm.train_folder == folder).update({'model_path': model_path})
-            session.commit()
+            result = result.fetchall()
+            if result:
+                return result[-1]
+            return None

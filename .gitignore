@@ -174,3 +174,4 @@ data_root/*
 temp/*
 runs/*
 train_classify/*
+*.pt

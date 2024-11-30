@@ -23,9 +23,9 @@ class Model:
         save_dir (str): Каталог, где временно сохраняются результаты обучения и веса модели.
     """
 
-    def __init__(self, path_dataset, folder, model_type=None, path_model=None, imgsz=None):
+    def __init__(self, path_dataset, folder, model_type=None, path_model=None, imgsz=None, version=0):
         self.model_type = model_type
-
+        self.version = version+1
         self.path_dataset = path_dataset
         self.path_test = path_dataset
         if os.path.exists(path := os.path.join(os.path.split(path_dataset)[0], 'results')):
@@ -117,20 +117,35 @@ class Model:
         """
         Вспомогательный метод для сохранения весов и метрик модели.
         """
+        # Пути к исходным файлам
         source_weights_path = os.path.join(self.save_dir, 'train', 'weights', 'last.pt')
-        destination_folder = os.path.join('models', self.folder)
+        source_results_path = os.path.join(self.save_dir, 'train', 'results.png')
         
+        # Создание папки назначения
+        destination_folder = os.path.join('models', self.folder)
         os.makedirs(destination_folder, exist_ok=True)
 
+        weight_filename = f"last_{self.version}.pt"
+        result_filename = f"results_{self.version}.png"
+        
+        self.path_model = os.path.join(destination_folder, weight_filename)
+        destination_results_path = os.path.join(destination_folder, result_filename)
+
+
+        self.path_model = os.path.join(destination_folder, os.path.basename(source_weights_path))
+        
         self.path_model = os.path.join(destination_folder, os.path.basename(source_weights_path))
         shutil.copy2(source_weights_path, self.path_model)
-
-        source_results_path = os.path.join(self.save_dir, 'train', 'results.png')
-        destination_results_path = os.path.join(destination_folder, os.path.basename(source_results_path))
         shutil.copy2(source_results_path, destination_results_path)
 
+
+        # Удаление временной папки с результатами обучения
+        
         # Удаление временной папки с результатами обучения
         shutil.rmtree(self.save_dir, ignore_errors=True)
+        
+        print(f"Модель сохранена как: {self.path_model}")
+        print(f"Результаты сохранены как: {destination_results_path}")
 
     def _process_image_seg(self, path_image: str):
         """
@@ -170,7 +185,8 @@ class Model:
             color_mask[mask_resized_np > 0] = color
             color_mask_img = Image.fromarray(color_mask)
 
-            mask_filename = os.path.join(self.path_result, 'masks', f"{classes_names[int(classes[i])]}_{i}{image_ext}")
+            path_mask = os.path.join(self.path_result, 'masks')
+            mask_filename = os.path.join(path_mask, f"{image_name}_{classes_names[int(classes[i])]}_{i}{image_ext}")
             color_mask_img.save(mask_filename)
             upload_to_drive(mask_filename, os.path.join(*os.path.join(self.folder, 'result', 'masks').split(os.sep)[1:]))
             

@@ -11,33 +11,37 @@ def train_or_retrain(model_type, split_func, folder, path_dataset):
     """
     Универсальная функция для обучения или дообучения модели.
     """
+    train = False
     if not SyncOrm.select_model(folder):
+        train = True
         data = DataSpliting(path_dataset)
         split_func(data)  # Выполнение сегментации или классификации
         model = Model(model_type=model_type, path_dataset=os.path.join(os.getcwd(), data.output_dir), folder=folder)
         model.train()
         SyncOrm.update_data(folder)
+    elif SyncOrm.select_data_not_trained(folder):
+        train = True
+        path_model, version, _, imgsz = SyncOrm.select_model(folder)
+        data = DataSpliting(path_dataset)
+        split_func(data)
+        model = Model(path_model=path_model, path_dataset=os.path.join(os.getcwd(), data.output_dir), folder=folder, imgsz=imgsz, version=version)
+        model.additional_train()
+    if train:
+        SyncOrm.update_data(folder)
         SyncOrm.insert_model({
             'train_folder': folder,
             'path': model.path_model,
+            'version': model.version,
             'classes': data.names,
             'imgsz': model.imgsz
         })
-    elif SyncOrm.select_data_not_trained(folder):
-        path_model, _, imgsz = SyncOrm.select_model(folder)[0]
-        data = DataSpliting(path_dataset)
-        split_func(data)
-        model = Model(path_model=path_model, path_dataset=os.path.join(os.getcwd(), data.output_dir), folder=folder, imgsz=imgsz)
-        model.additional_train()
-        SyncOrm.update_data(folder)
-        SyncOrm.update_model(folder, model.path_model)
-
-def perform_inference(model, task, folder, path_test):
+    
+def perform_inference(task, folder, path_test):
     """
     Инференс модели на тестовых данных.
     """
-    path_model, _, imgsz = SyncOrm.select_model(folder)[0]
-    model = Model(path_model=path_model, path_dataset=path_test, folder=folder, imgsz=imgsz)
+    path_model, version, _, imgsz = SyncOrm.select_model(folder)
+    model = Model(path_model=path_model, path_dataset=path_test, folder=folder, imgsz=imgsz, version=version)
     model.predict(task)
 
 def main():
@@ -54,15 +58,15 @@ def main():
     task = determine_task_type(path_dataset=path_dataset)
     if task == 'сегментация':
         train_or_retrain('yolo11m-seg.pt', lambda data: data.spliting_seg(), folder, path_dataset)
-        model = SyncOrm.select_model(folder)[0][0] if SyncOrm.select_model(folder) else None
+        model = SyncOrm.select_model(folder)[0] if SyncOrm.select_model(folder) else None
         if model and input('Хотите ли провести тестирование (Y/N): ') == 'Y':
-            perform_inference(model, task, folder, path_test)
+            perform_inference(task, folder, path_test)
     
     elif task == 'классификация':
-        train_or_retrain('yolo11m-cls.pt', lambda data: data.spliting_class(), folder, path_dataset)
-        model = SyncOrm.select_model(folder)[0][0] if SyncOrm.select_model(folder) else None
+        train_or_retrain('yolo11m-cls.pt', lambda data: data.spliting_class(0.7, 0.3), folder, path_dataset)
+        model = SyncOrm.select_model(folder)[0] if SyncOrm.select_model(folder) else None
         if model and input('Хотите ли провести тестирование (Y/N): ') == 'Y':
-            perform_inference(model, task, folder, path_test)
+            perform_inference(task, folder, path_test)
     
     # Удаление временных данных
     if os.path.exists(data_root):
