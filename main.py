@@ -46,7 +46,7 @@ def perform_inference(task, folder, path_test):
 
 def main():
     # Создаем таблицы, если это необходимо
-    # SyncOrm.create_tables()
+    SyncOrm.create_tables()
     folder = load_main_dataset()
     path_dataset = os.path.join(folder, 'dataset')
     data_root = 'data_root'

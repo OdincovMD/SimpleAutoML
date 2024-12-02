@@ -175,3 +175,7 @@ temp/*
 runs/*
 train_classify/*
 *.pt
+
+#other stuff
+*.pptx
+*.zip

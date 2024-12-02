@@ -1,4 +1,6 @@
 from ultralytics import YOLO
+from torch import device
+from torch import cuda
 import shutil
 
 def check_imgsz(path_dataset: str, model_type: str, epochs: int = 10) -> int:
@@ -21,6 +23,7 @@ def check_imgsz(path_dataset: str, model_type: str, epochs: int = 10) -> int:
             epochs=epochs,
             project='train_classify',
             batch=8,
+            device=device("cuda:0" if cuda.is_available() else "cpu")
             )
         metrics = model.val()
         if 'cls' in model_type:

@@ -1,3 +1,4 @@
+--extra-index-url https://download.pytorch.org/whl/cu124
 # Общие зависимости
 annotated-types==0.7.0
 cachetools==5.5.0
@@ -59,8 +60,10 @@ setuptools==75.4.0; sys_platform != "win32"
 six==1.16.0
 SQLAlchemy==2.0.36
 sympy==1.13.1
-torch==2.5.1
-torchvision==0.20.1
+torch==2.5.1; sys_platform != "win32"
+torchvision==0.20.1; sys_platform != "win32"
+torch==2.5.1+cu124; sys_platform == "win32"
+torchvision==0.20.1+cu124; sys_platform == "win32"
 tqdm==4.67.1; sys_platform == "win32"
 tqdm==4.66.6; sys_platform != "win32"
 typing_extensions==4.12.2
