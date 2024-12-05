@@ -22,7 +22,8 @@ def check_imgsz(path_dataset: str, model_type: str, epochs: int = 10) -> int:
             imgsz=img_size,
             epochs=epochs,
             project='train_classify',
-            batch=8,
+            batch=4,
+            workers=2,
             device=device("cuda:0" if cuda.is_available() else "cpu")
             )
         metrics = model.val()
@@ -30,6 +31,9 @@ def check_imgsz(path_dataset: str, model_type: str, epochs: int = 10) -> int:
             context_imgsz[img_size] = metrics.top1
         else:
             context_imgsz[img_size] = metrics.box.map
+        del model
+        if cuda.is_available():
+            cuda.empty_cache()
     result = int(max(context_imgsz.items(), key=lambda x: x[1])[0])
     shutil.rmtree('train_classify')
     return result
