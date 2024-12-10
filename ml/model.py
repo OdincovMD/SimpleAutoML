@@ -58,9 +58,9 @@ class Model:
         model.train(
             data=self.path_dataset,
             epochs=100,
-            batch=8,
+            batch=4,
             device=self.device,
-            workers=4,
+            workers=2,
             project=self.save_dir,
             imgsz=self.imgsz,
             seed=self.random_seed
@@ -78,9 +78,9 @@ class Model:
         model.train(
             epochs=10,
             data=self.path_dataset,
-            batch=8,
+            batch=4,
             device=self.device,
-            workers=4,
+            workers=2,
             project=self.save_dir,
             imgsz=self.imgsz,
             seed=self.random_seed
@@ -105,13 +105,9 @@ class Model:
 
         if task == 'сегментация':
             os.makedirs(os.path.join(self.path_result, 'masks'))
-            for path_image in os.listdir(self.path_test):
-                abs_path_image = os.path.join(self.path_test, path_image)
-                self._process_image_seg(abs_path_image)
+            self._process_image_seg(self.path_test)
         elif task == 'классификация':           
-            for path_image in os.listdir(self.path_test):
-                abs_path_image = os.path.join(self.path_test, path_image)
-                self._process_image_cls(abs_path_image)
+            self._process_image_cls(self.path_test)
 
     def _save_results(self):
         """
@@ -147,81 +143,84 @@ class Model:
         print(f"Модель сохранена как: {self.path_model}")
         print(f"Результаты сохранены как: {destination_results_path}")
 
-    def _process_image_seg(self, path_image: str):
+    def _process_image_seg(self, dir_images: str):
         """
         Вспомогательный метод для обработки изображения в задаче сегментации.
         Параметры:
-            path_image (str): абсолютный путь до тестируемого изображения
+            dir_images (str): абсолютный путь до папки с тестируемыми изображениями
         """
-        image_name, image_ext = os.path.splitext(os.path.basename(path_image))
-
         model = YOLO(self.path_model)
-        result = model(path_image, project=self.save_dir)[0]
+        images_path = [os.path.join(dir_images, x) for x in os.listdir(dir_images)]
+        results = model(dir_images, project=self.save_dir, device=self.device, batch=-1)
 
-        try:
-            classes_names = result.names
-            classes = result.boxes.cls.cpu().numpy()
-            masks = result.masks.data.cpu().numpy()
-        except Exception as e:
-            image = Image.open(path_image)
+        for result, path_image in zip(results, images_path):
+            image_name, image_ext = os.path.splitext(os.path.basename(path_image))
+            try:
+                classes_names = result.names
+                classes = result.boxes.cls.cpu().numpy()
+                masks = result.masks.data.cpu().numpy()
+            except Exception as e:
+                image = Image.open(path_image)
+                new_path_image = os.path.join(self.path_result, f"{image_name}_yolo{image_ext}")
+                image.save(new_path_image)
+                upload_to_drive(new_path_image, os.path.join(*os.path.join(self.folder, 'result').split(os.sep)[1:]))
+                continue
+            
+            image_orig = result.orig_img
+            h_or, w_or = result.orig_shape
+
+            image = Image.fromarray(image_orig)
+            image = image.resize((640, 640))
+
+            for i, mask in enumerate(masks):
+                mask = Image.fromarray((mask * 255).astype(np.uint8))
+                mask_resized = mask.resize((w_or, h_or))
+                
+                mask_resized_np = np.array(mask_resized)
+                color = self.colors[int(classes[i]) % len(self.colors)]
+                color_mask = np.zeros((h_or, w_or, 3), dtype=np.uint8)
+                color_mask[mask_resized_np > 0] = color
+                color_mask_img = Image.fromarray(color_mask)
+
+                path_mask = os.path.join(self.path_result, 'masks')
+                mask_filename = os.path.join(path_mask, f"{image_name}_{classes_names[int(classes[i])]}_{i}{image_ext}")
+                color_mask_img.save(mask_filename)
+                upload_to_drive(mask_filename, os.path.join(*os.path.join(self.folder, 'result', 'masks').split(os.sep)[1:]))
+                
+                image_orig = np.array(image_orig).astype(np.float32)
+                blended_image = image_orig * 1.0 + color_mask * 0.5
+                image_orig = np.clip(blended_image, 0, 255).astype(np.uint8) 
+
             new_path_image = os.path.join(self.path_result, f"{image_name}_yolo{image_ext}")
-            image.save(new_path_image)
+            final_image = Image.fromarray(image_orig)
+
+            final_image.save(new_path_image)
             upload_to_drive(new_path_image, os.path.join(*os.path.join(self.folder, 'result').split(os.sep)[1:]))
-            return
-        
-        image_orig = result.orig_img
-        h_or, w_or = result.orig_shape
 
-        image = Image.fromarray(image_orig)
-        image = image.resize((640, 640))
-
-        for i, mask in enumerate(masks):
-            mask = Image.fromarray((mask * 255).astype(np.uint8))
-            mask_resized = mask.resize((w_or, h_or))
-            
-            mask_resized_np = np.array(mask_resized)
-            color = self.colors[int(classes[i]) % len(self.colors)]
-            color_mask = np.zeros((h_or, w_or, 3), dtype=np.uint8)
-            color_mask[mask_resized_np > 0] = color
-            color_mask_img = Image.fromarray(color_mask)
-
-            path_mask = os.path.join(self.path_result, 'masks')
-            mask_filename = os.path.join(path_mask, f"{image_name}_{classes_names[int(classes[i])]}_{i}{image_ext}")
-            color_mask_img.save(mask_filename)
-            upload_to_drive(mask_filename, os.path.join(*os.path.join(self.folder, 'result', 'masks').split(os.sep)[1:]))
-            
-            image_orig = np.array(image_orig).astype(np.float32)
-            blended_image = image_orig * 1.0 + color_mask * 0.5
-            image_orig = np.clip(blended_image, 0, 255).astype(np.uint8) 
-
-        new_path_image = os.path.join(self.path_result, f"{image_name}_yolo{image_ext}")
-        final_image = Image.fromarray(image_orig)
-
-        final_image.save(new_path_image)
-        upload_to_drive(new_path_image, os.path.join(*os.path.join(self.folder, 'result').split(os.sep)[1:]))
-
-    def _process_image_cls(self, path_image: str):
+    def _process_image_cls(self, dir_images: str):
         """
         Вспомогательный метод для обработки изображения в задаче классификации.
         Параметры:
-            path_image (str): абсолютный путь до тестируемого изображения
+            path_image (str): абсолютный путь до папки с тестируемыми изображениями
         """
         image_name, _ = os.path.splitext(os.path.basename(path_image))
 
         model = YOLO(self.path_model)
-        result = model(path_image, project=self.save_dir)[0]
+        images_path = [os.path.join(dir_images, x) for x in os.listdir(dir_images)]
+        results = model(dir_images, project=self.save_dir, device=self.device, batch=-1)
 
-        try:
-            classes_names = result.names
-        except Exception as e:
+        for result, path_image in zip(results, images_path):
+            try:
+                classes_names = result.names
+            except Exception as e:
+                filename = os.path.join(self.path_result, f"{image_name}_pred.txt")
+                with open(filename, mode="wt", encoding='utf-8') as pred:
+                    pred.write('Null')
+                upload_to_drive(filename, os.path.join(*os.path.join(self.folder, 'result').split(os.sep)[1:]))
+                continue        
+            
             filename = os.path.join(self.path_result, f"{image_name}_pred.txt")
             with open(filename, mode="wt", encoding='utf-8') as pred:
-                pred.write('Null')
+                pred.write(classes_names[np.argmax(result.probs.data.cpu().numpy())])
             upload_to_drive(filename, os.path.join(*os.path.join(self.folder, 'result').split(os.sep)[1:]))
-            return        
-        
-        filename = os.path.join(self.path_result, f"{image_name}_pred.txt")
-        with open(filename, mode="wt", encoding='utf-8') as pred:
-            pred.write(classes_names[np.argmax(result.probs.data.cpu().numpy())])
-        upload_to_drive(filename, os.path.join(*os.path.join(self.folder, 'result').split(os.sep)[1:]))
         
