@@ -1,0 +1,14 @@
+.git
+__pycache__
+*.pyc
+venv
+.venv
+.env
+.pytest_cache
+ml/datasets
+ml/runs
+data_root
+train_classify
+*.pt
+frontend
+.check_imgsz_cache.json

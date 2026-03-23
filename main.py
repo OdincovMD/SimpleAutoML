@@ -1,11 +1,15 @@
 import os
+import sys
 import shutil
-from dataset.load_dataset import main as load_main_dataset
-from dataset.task_selector import determine_task_type
-from dataset.splitting import DataSpliting
-from dataset.logging import setup_logger
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from backend.dataset.load_dataset import main as load_main_dataset
+from backend.dataset.task_selector import determine_task_type
+from backend.dataset.splitting import DataSpliting
+from backend.dataset.logging import setup_logger
 from ml.model import Model
-from src.queries.orm import SyncOrm
+from backend.db.orm import SyncOrm
 
 def train_or_retrain(model_type, split_func, folder, path_dataset):
     """
@@ -72,9 +76,14 @@ def main():
     if os.path.exists(data_root):
         shutil.rmtree(data_root)
 
-if __name__ == "__main__":
+def run():
+    """Точка входа для CLI (setup_logger + main)."""
     try:
         setup_logger()
         main()
     except Exception as e:
         print(f"Произошла ошибка: {e}")
+
+
+if __name__ == "__main__":
+    run()

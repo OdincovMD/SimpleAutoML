@@ -175,6 +175,7 @@ temp/*
 runs/*
 train_classify/*
 *.pt
+.check_imgsz_cache.json
 
 #other stuff
 *.pptx

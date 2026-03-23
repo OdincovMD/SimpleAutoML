@@ -126,9 +126,41 @@ classification/            # Ваша задача
     venv\Scripts\activate
     ```
 5. Установите зависимости:
-    ```bash 
-    pip install -r requirements.txt
+    - Для CLI / локального обучения: `pip install -r ml/requirements.txt`
+    - Только backend (FastAPI): `pip install -r backend/requirements.txt`
+6. Создайте файл `.env` с параметрами БД и (опционально) Google Drive:
+    ```bash
+    DB_HOST=localhost
+    DB_PORT=3306
+    DB_USER=your_user
+    DB_PASS=your_pass
+    DB_NAME=your_db
+    # Опционально:
+    SERVICE_ACCOUNT_FILE=automl_token.json
+    DRIVE_FOLDER_ID=your_drive_folder_id
     ```
+7. Инициализируйте таблицы БД при первом запуске:
+    ```bash
+    python -c "from backend.db.orm import SyncOrm; SyncOrm.create_tables()"
+    ```
+   Для полного сброса БД: `SyncOrm.init_db()`
+
+## Docker и веб-интерфейс
+
+Система может работать в виде стека Docker с веб-интерфейсом:
+
+```bash
+cp .env.example .env   # при необходимости отредактируйте
+docker compose up -d
+```
+
+Сервисы:
+- **Портал:** http://localhost:100 (все запросы через nginx)
+- **API:** http://localhost:100/api/
+- **MinIO Console:** http://localhost:100/minio/ (если настроен proxy)
+
+Стек: nginx, frontend (React), backend (FastAPI), ml (Celery worker), PostgreSQL, Redis, MinIO.
+Healthcheck настроен для nginx, backend, postgres, redis, ml.
 ## Лицензия
 
 Этот проект распространяется под лицензией [MIT](LICENSE).
