@@ -1,8 +1,20 @@
 # AutoML-система для задач компьютерного зрения
 
+## Содержание
+
+- [Описание](#описание)
+- [Автоматизация процессов](#автоматизация-процессов)
+- [Загрузка данных](#загрузка-данных)
+- [Тестирование (инференс)](#тестирование-инференс)
+- [Локальный запуск](#локальный-запуск-проекта)
+- [Docker и веб-интерфейс](#docker-и-веб-интерфейс)
+- [Лицензия](#лицензия)
+
 ## Описание
 
 Данный проект представляет реализацию **простой AutoML-системы** для автоматизации решения задач компьютерного зрения (CV). Система минимизирует ручные операции, такие как подготовка данных и выбор модели.
+
+Реализованы два режима: **CLI** (`main.py`, локальное обучение) и **веб-стек** (React + FastAPI + Celery + PostgreSQL + Redis + MinIO), собираемый через Docker Compose.
 
 ![Концепция проекта](image.png)
 
@@ -128,16 +140,24 @@ classification/            # Ваша задача
 5. Установите зависимости:
     - Для CLI / локального обучения: `pip install -r ml/requirements.txt`
     - Только backend (FastAPI): `pip install -r backend/requirements.txt`
-6. Создайте файл `.env` с параметрами БД (PostgreSQL, как в `backend/config.py`) и (опционально) Google Drive:
+6. Создайте файл `.env` в корне репозитория. Достаточно задать либо **`DATABASE_URL`** (строка подключения PostgreSQL), либо отдельные поля, как в `backend/config.py`:
     ```bash
+    # Вариант A — одна строка (как в Docker)
+    # DATABASE_URL=postgresql+psycopg2://user:pass@localhost:5432/dbname
+
+    # Вариант B — по полям
     DB_HOST=localhost
     DB_PORT=5432
     DB_USER=your_user
     DB_PASS=your_pass
     DB_NAME=your_db
-    # Опционально:
+
+    # Google Drive (опционально, для API и CLI)
     SERVICE_ACCOUNT_FILE=automl_token.json
     DRIVE_FOLDER_ID=your_drive_folder_id
+
+    # Если поднимаете Celery worker и backend отдельно: общий секрет для POST /api/internal/storage/sync
+    # INTERNAL_STORAGE_TOKEN=длинная-случайная-строка
     ```
 7. Инициализируйте таблицы БД при первом запуске:
     ```bash
@@ -147,27 +167,72 @@ classification/            # Ваша задача
 
 ## Docker и веб-интерфейс
 
-Система может работать в виде стека Docker с веб-интерфейсом:
+### Требования
+
+- Docker Engine и **Docker Compose V2** с поддержкой директивы **`include`** (рекомендуется Compose **2.20+**). Если `include` недоступен, подключите MinIO вторым файлом:
+  ```bash
+  docker compose -f docker-compose.yml -f docker-compose.minio.yml up -d
+  ```
+
+### Быстрый старт
 
 ```bash
-cp .env.example .env   # задайте INTERNAL_STORAGE_TOKEN и при необходимости MinIO
-docker compose up -d
+cp .env.example .env
+# Обязательно смените INTERNAL_STORAGE_TOKEN в продакшене (одинаковое значение для backend и worker).
+docker compose up -d --build
 ```
 
-Основной `docker-compose.yml` подключает **MinIO как отдельный микросервис** через [`docker-compose.minio.yml`](docker-compose.minio.yml) (`include`). При необходимости тот же файл можно подключить вручную:  
-`docker compose -f docker-compose.yml -f docker-compose.minio.yml up -d`.
+Точки входа после запуска:
 
-**Хранилище:** с S3 API общается только **backend** (загрузка датасетов, presigned URL, синхронизация артефактов после обучения). Сервис **ml** (Celery) пишет файлы на общий том `/data` и по завершении вызывает внутренний endpoint `POST /api/internal/storage/sync` с заголовком `X-Internal-Token` (переменная `INTERNAL_STORAGE_TOKEN` должна совпадать у `backend` и `ml`).
+| URL | Назначение |
+|-----|------------|
+| http://localhost:100 | Веб-портал (nginx → frontend) |
+| http://localhost:100/api/ | REST API (FastAPI) |
+| http://localhost:100/api/health | Проверка живости backend |
+| http://localhost:100/minio/ | Консоль MinIO (прокси nginx → порт 9001 контейнера) |
 
-Сервисы:
-- **Портал:** http://localhost:100 (все запросы через nginx)
-- **API:** http://localhost:100/api/
-- **MinIO Console:** http://localhost:100/minio/ (прокси в nginx)
+### Состав стека
 
-Стек: nginx, frontend (React), backend (FastAPI), ml (Celery worker), PostgreSQL, Redis, MinIO.
-Healthcheck настроен для nginx, backend, postgres, redis, ml.
+| Сервис | Роль |
+|--------|------|
+| **nginx** | Единая точка входа, лимит тела запроса 500M, прокси API и MinIO Console |
+| **frontend** | SPA (React, Vite, TypeScript) |
+| **backend** | FastAPI: датасеты, Drive, задачи, модели, работа с MinIO (S3 API) |
+| **ml** | Celery worker: обучение YOLO; общий том `/data` с backend; после обучения дергает внутренний API синхронизации в MinIO |
+| **postgres** | Метаданные датасетов и моделей |
+| **redis** | Брокер и backend результатов Celery |
+| **minio** | Объектное хранилище (отдельный compose-файл [`docker-compose.minio.yml`](docker-compose.minio.yml), подключается через `include` в корневом [`docker-compose.yml`](docker-compose.yml)) |
 
-В сервисе `ml` по умолчанию заданы `SKIP_IMGSZ_SEARCH=1` и `AUTO_IMGSZ=640`, чтобы не запускать длительный перебор размера изображения (как при локальном CLI). Для полного поиска `imgsz` уберите эти переменные или задайте `SKIP_IMGSZ_SEARCH=0`.
+Healthcheck настроен для **nginx**, **backend**, **postgres**, **redis**, **ml**. У образа `minio/minio` отдельный healthcheck не используется (минимальный rootfs).
+
+### Хранилище и безопасность
+
+- С **MinIO по S3 API** взаимодействует только **backend** (загрузка ZIP в бакет, presigned URL для скачивания модели, выгрузка `results/` и `models/` после задачи).
+- **ml** не содержит клиента MinIO: пишет артефакты на том **`ml_data`** (`/data` в контейнерах) и вызывает **`POST /api/internal/storage/sync`** с заголовком **`X-Internal-Token`**. Значение **`INTERNAL_STORAGE_TOKEN`** должно совпадать у сервисов **backend** и **ml** (задаётся в `.env` / compose; в примере по умолчанию в compose — только для разработки).
+
+### Переменные окружения (Docker)
+
+См. [`.env.example`](.env.example). Часто используемые:
+
+- **`POSTGRES_*`** — учётные данные БД (и подстановка в `DATABASE_URL` у backend/ml).
+- **`MINIO_ROOT_USER`**, **`MINIO_ROOT_PASSWORD`** — ключи MinIO (те же передаются backend как `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY`).
+- **`INTERNAL_STORAGE_TOKEN`** — секрет внутреннего API синхронизации с хранилищем.
+- **`DATABASE_URL`**, **`CELERY_BROKER_URL`** — при необходимости переопределить явно.
+
+Для **Google Drive** в контейнерах положите файл сервисного аккаунта в контекст сборки и смонтируйте или скопируйте в образ согласно вашей политике безопасности; в коде по умолчанию ожидается путь из **`SERVICE_ACCOUNT_FILE`** (`backend/config.py`).
+
+### Обучение в контейнере
+
+В **ml** по умолчанию заданы **`SKIP_IMGSZ_SEARCH=1`** и **`AUTO_IMGSZ=640`**, чтобы не запускать длительный перебор размера изображения (в CLI без этих переменных может выполняться `check_imgsz`). Чтобы вернуть перебор в worker, задайте **`SKIP_IMGSZ_SEARCH=0`** и при необходимости уберите **`AUTO_IMGSZ`**.
+
+### Полезные команды
+
+```bash
+docker compose logs -f ml backend      # логи worker и API
+docker compose build --no-cache ml     # пересборка после смены ml/requirements.txt
+docker compose down -v                 # остановка и удаление томов (данные БД и MinIO пропадут)
+```
+
 ## Лицензия
 
 Этот проект распространяется под лицензией [MIT](LICENSE).
