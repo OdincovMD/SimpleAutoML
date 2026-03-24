@@ -1,6 +1,7 @@
 """Google Drive API: list folders, download dataset for web pipeline."""
-import os
 import io
+import os
+import re
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
@@ -8,6 +9,17 @@ from googleapiclient.http import MediaIoBaseDownload
 from backend.config import settings
 
 SCOPES = ["https://www.googleapis.com/auth/drive.readonly", "https://www.googleapis.com/auth/drive"]
+
+# Google Drive v3: в строковых литералах экранировать \ и '
+_DRIVE_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{10,128}$")
+
+
+def _escape_drive_query_literal(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("'", "\\'")
+
+
+def is_valid_drive_file_id(folder_id: str) -> bool:
+    return bool(folder_id and _DRIVE_ID_RE.match(folder_id.strip()))
 
 
 def _get_service():
@@ -20,8 +32,9 @@ def _get_service():
 def list_folders_by_parent_name(parent_name: str) -> list[dict]:
     """Find folder by name, return list of subfolders {id, name}."""
     service = _get_service()
+    safe_name = _escape_drive_query_literal(parent_name.strip())
     result = service.files().list(
-        q=f"name='{parent_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false",
+        q=f"name='{safe_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false",
         spaces="drive",
         fields="files(id, name)",
     ).execute()
@@ -34,9 +47,12 @@ def list_folders_by_parent_name(parent_name: str) -> list[dict]:
 
 def list_folders_by_parent_id(parent_id: str) -> list[dict]:
     """List subfolders of a folder. Returns [{id, name}, ...]."""
+    pid = parent_id.strip()
+    if not _DRIVE_ID_RE.match(pid):
+        return []
     service = _get_service()
     result = service.files().list(
-        q=f"'{parent_id}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false",
+        q=f"'{pid}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false",
         spaces="drive",
         fields="files(id, name)",
     ).execute()
@@ -45,14 +61,20 @@ def list_folders_by_parent_id(parent_id: str) -> list[dict]:
 
 def list_root_folders() -> list[dict]:
     """List folders in DRIVE_FOLDER_ID (root). Returns [{id, name}, ...]."""
-    return list_folders_by_parent_id(settings.DRIVE_FOLDER_ID)
+    rid = settings.DRIVE_FOLDER_ID.strip()
+    if not _DRIVE_ID_RE.match(rid):
+        return []
+    return list_folders_by_parent_id(rid)
 
 
 def _get_all_files_in_folder(service, folder_id: str, prefix: str = "") -> list[dict]:
     """Recursively list all files. Skips 'result' folder."""
+    fid = folder_id.strip()
+    if not _DRIVE_ID_RE.match(fid):
+        return []
     files = []
     result = service.files().list(
-        q=f"'{folder_id}' in parents and trashed=false",
+        q=f"'{fid}' in parents and trashed=false",
         fields="files(id, name, mimeType)",
     ).execute()
     for f in result.get("files", []):
@@ -68,8 +90,11 @@ def _get_all_files_in_folder(service, folder_id: str, prefix: str = "") -> list[
 
 def download_folder_to(folder_id: str, dest_path: str) -> None:
     """Download all files from Drive folder to local dest_path (preserving structure)."""
+    fid = folder_id.strip()
+    if not is_valid_drive_file_id(fid):
+        raise ValueError("Некорректный идентификатор папки Google Drive")
     service = _get_service()
-    all_files = _get_all_files_in_folder(service, folder_id)
+    all_files = _get_all_files_in_folder(service, fid)
     os.makedirs(dest_path, exist_ok=True)
     for file_info in all_files:
         local_path = os.path.join(dest_path, file_info["path"])

@@ -1,3 +1,7 @@
+# MinIO вынесен в docker-compose.minio.yml (отдельный микросервис хранилища).
+include:
+  - path: docker-compose.minio.yml
+
 services:
   nginx:
     image: nginx:alpine
@@ -41,16 +45,6 @@ services:
       retries: 5
     restart: unless-stopped
 
-  minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
-    volumes:
-      - minio_data:/data
-    restart: unless-stopped
-
   backend:
     build:
       context: .
@@ -65,6 +59,7 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
       ML_DATA_PATH: /data
+      INTERNAL_STORAGE_TOKEN: ${INTERNAL_STORAGE_TOKEN:-dev-change-me-internal-token}
     depends_on:
       postgres:
         condition: service_healthy
@@ -88,10 +83,12 @@ services:
       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-automl}:${POSTGRES_PASSWORD:-automl}@postgres:5432/${POSTGRES_DB:-automl}
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/0
-      MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
       ML_DATA_PATH: /data
+      BACKEND_INTERNAL_URL: http://backend:8000
+      INTERNAL_STORAGE_TOKEN: ${INTERNAL_STORAGE_TOKEN:-dev-change-me-internal-token}
+      # Поиск imgsz через серию мини-train очень долгий в контейнере; в Docker — фиксированный размер
+      SKIP_IMGSZ_SEARCH: "1"
+      AUTO_IMGSZ: "640"
     volumes:
       - ml_data:/data
     depends_on:
@@ -99,8 +96,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      minio:
-        condition: service_started
+      backend:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "celery", "-A", "backend.app.tasks", "inspect", "ping"]
       interval: 15s
@@ -119,5 +116,4 @@ services:
 
 volumes:
   postgres_data:
-  minio_data:
   ml_data:

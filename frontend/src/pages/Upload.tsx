@@ -12,6 +12,9 @@ import PageHeader from "../components/ui/PageHeader";
 import Spinner from "../components/ui/Spinner";
 import CodeBlock from "../components/ui/CodeBlock";
 
+const LS_FOLDER = "automl_last_folder_id";
+const LS_JOB = "automl_last_job_id";
+
 type Source = "zip" | "drive";
 
 export default function Upload() {
@@ -57,10 +60,22 @@ export default function Upload() {
         if (!file) return;
         const data = await uploadDataset(file);
         setResult(data);
+        try {
+          localStorage.setItem(LS_FOLDER, data.folder_id);
+          localStorage.setItem(LS_JOB, data.job_id);
+        } catch {
+          /* private mode */
+        }
       } else {
         if (!selectedFolder) return;
         const data = await startJobFromDrive(selectedFolder.id);
         setResult(data);
+        try {
+          localStorage.setItem(LS_FOLDER, data.folder_id);
+          localStorage.setItem(LS_JOB, data.job_id);
+        } catch {
+          /* private mode */
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));

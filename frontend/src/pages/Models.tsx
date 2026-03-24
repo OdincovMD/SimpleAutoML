@@ -6,9 +6,19 @@ import Button from "../components/ui/Button";
 import PageHeader from "../components/ui/PageHeader";
 import Input from "../components/ui/Input";
 
+const LS_FOLDER = "automl_last_folder_id";
+
 export default function Models() {
   const [searchParams] = useSearchParams();
-  const [folderId, setFolderId] = useState(() => searchParams.get("folder") || "");
+  const [folderId, setFolderId] = useState(() => {
+    const q = searchParams.get("folder");
+    if (q) return q;
+    try {
+      return localStorage.getItem(LS_FOLDER) || "";
+    } catch {
+      return "";
+    }
+  });
 
   useEffect(() => {
     const f = searchParams.get("folder");

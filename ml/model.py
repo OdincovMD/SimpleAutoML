@@ -51,7 +51,18 @@ class Model:
         Запуск основного этапа обучения модели с параметрами по умолчанию.
         Результаты и веса модели копируются в указанную папку.
         """
-        self.imgsz = check_imgsz(path_dataset=self.path_dataset, model_type=self.model_type)
+        skip_search = os.environ.get("SKIP_IMGSZ_SEARCH", "").lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+        if skip_search:
+            default_sz = int(os.environ.get("AUTO_IMGSZ", "640"))
+            self.imgsz = self.imgsz if self.imgsz is not None else default_sz
+        else:
+            self.imgsz = check_imgsz(
+                path_dataset=self.path_dataset, model_type=self.model_type
+            )
 
         # Инициализация и запуск обучения модели
         model = YOLO(self.model_type)

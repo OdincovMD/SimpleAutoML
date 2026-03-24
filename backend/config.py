@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     MINIO_SECRET_KEY: str = "minioadmin"
     MINIO_SECURE: bool = False
 
+    # Общий секрет backend ↔ Celery worker для POST /api/internal/storage/sync
+    INTERNAL_STORAGE_TOKEN: str = ""
+
     ML_DATA_PATH: str = "/data"
 
     # Google Drive (CLI)

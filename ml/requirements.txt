@@ -74,7 +74,6 @@ uritemplate==4.1.1
 urllib3==2.2.3
 redis>=5.0
 celery[redis]>=5.3
-minio>=7.2.0
 
 # Специфичные зависимости для Windows
 colorama==0.4.6; sys_platform == "win32"

@@ -88,6 +88,8 @@ async def start_job_from_drive(body: DriveJobRequest):
         download_folder_to(body.folder_id, folder_path)
     except FileNotFoundError:
         raise HTTPException(503, "Google Drive не настроен (automl_token.json)")
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     except Exception as e:
         raise HTTPException(500, f"Ошибка загрузки с Drive: {e}")
 

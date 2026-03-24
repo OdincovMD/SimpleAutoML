@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.app.api import datasets, drive, jobs, models
+from backend.app.api import datasets, drive, internal_storage, jobs, models
 
 
 @asynccontextmanager
@@ -38,6 +38,11 @@ app.include_router(datasets.router, prefix="/api/datasets", tags=["datasets"])
 app.include_router(drive.router, prefix="/api/drive", tags=["drive"])
 app.include_router(models.router, prefix="/api/models", tags=["models"])
 app.include_router(jobs.router, prefix="/api/jobs", tags=["jobs"])
+app.include_router(
+    internal_storage.router,
+    prefix="/api/internal/storage",
+    tags=["internal"],
+)
 
 
 @app.get("/api/health")

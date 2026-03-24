@@ -2,6 +2,7 @@
 from fastapi import APIRouter, HTTPException
 
 from backend.app.services.drive import (
+    is_valid_drive_file_id,
     list_folders_by_parent_id,
     list_folders_by_parent_name,
     list_root_folders,
@@ -19,9 +20,14 @@ def get_folders(parent_name: str | None = None, parent_id: str | None = None) ->
     - neither: list folders in DRIVE_FOLDER_ID (root)
     """
     try:
-        if parent_name:
-            folders = list_folders_by_parent_name(parent_name)
-        elif parent_id:
+        if parent_name is not None and parent_name.strip():
+            pn = parent_name.strip()
+            if len(pn) > 256:
+                raise HTTPException(400, "Слишком длинное имя папки")
+            folders = list_folders_by_parent_name(pn)
+        elif parent_id is not None and parent_id.strip():
+            if not is_valid_drive_file_id(parent_id):
+                raise HTTPException(400, "Некорректный parent_id")
             folders = list_folders_by_parent_id(parent_id)
         else:
             folders = list_root_folders()

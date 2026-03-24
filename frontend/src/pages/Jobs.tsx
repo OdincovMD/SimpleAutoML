@@ -7,36 +7,57 @@ import PageHeader from "../components/ui/PageHeader";
 import Input from "../components/ui/Input";
 import CodeBlock from "../components/ui/CodeBlock";
 
+const LS_JOB = "automl_last_job_id";
+
 const statusConfig: Record<string, { label: string; badge: string }> = {
   PENDING: { label: "В очереди", badge: "badge--muted" },
   STARTED: { label: "Выполняется", badge: "badge--accent" },
   SUCCESS: { label: "Готово", badge: "badge--success" },
   FAILURE: { label: "Ошибка", badge: "badge--error" },
+  REVOKED: { label: "Отменено", badge: "badge--muted" },
 };
+
+const TERMINAL_STATUSES = new Set(["SUCCESS", "FAILURE", "REVOKED"]);
 
 export default function Jobs() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const jobId = searchParams.get("job");
-  const [inputId, setInputId] = useState(jobId || "");
+  const [inputId, setInputId] = useState(() => {
+    const fromUrl = searchParams.get("job");
+    if (fromUrl) return fromUrl;
+    try {
+      return localStorage.getItem(LS_JOB) || "";
+    } catch {
+      return "";
+    }
+  });
   const [status, setStatus] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (jobId) setInputId(jobId);
+  }, [jobId]);
+
+  useEffect(() => {
     if (!jobId) return;
+    let intervalId: ReturnType<typeof setInterval>;
     const poll = async () => {
       try {
         const data = await getJobStatus(jobId);
         setStatus(data.status);
         if (data.status === "SUCCESS") setError(null);
         if (data.status === "FAILURE" && data.error) setError(data.error);
+        if (TERMINAL_STATUSES.has(data.status)) {
+          clearInterval(intervalId);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
       }
     };
-    poll();
-    const id = setInterval(poll, 2000);
-    return () => clearInterval(id);
+    void poll();
+    intervalId = setInterval(poll, 2000);
+    return () => clearInterval(intervalId);
   }, [jobId]);
 
   const handleCheck = (e: React.FormEvent) => {

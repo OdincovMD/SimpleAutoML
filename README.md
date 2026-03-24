@@ -128,10 +128,10 @@ classification/            # Ваша задача
 5. Установите зависимости:
     - Для CLI / локального обучения: `pip install -r ml/requirements.txt`
     - Только backend (FastAPI): `pip install -r backend/requirements.txt`
-6. Создайте файл `.env` с параметрами БД и (опционально) Google Drive:
+6. Создайте файл `.env` с параметрами БД (PostgreSQL, как в `backend/config.py`) и (опционально) Google Drive:
     ```bash
     DB_HOST=localhost
-    DB_PORT=3306
+    DB_PORT=5432
     DB_USER=your_user
     DB_PASS=your_pass
     DB_NAME=your_db
@@ -150,17 +150,24 @@ classification/            # Ваша задача
 Система может работать в виде стека Docker с веб-интерфейсом:
 
 ```bash
-cp .env.example .env   # при необходимости отредактируйте
+cp .env.example .env   # задайте INTERNAL_STORAGE_TOKEN и при необходимости MinIO
 docker compose up -d
 ```
+
+Основной `docker-compose.yml` подключает **MinIO как отдельный микросервис** через [`docker-compose.minio.yml`](docker-compose.minio.yml) (`include`). При необходимости тот же файл можно подключить вручную:  
+`docker compose -f docker-compose.yml -f docker-compose.minio.yml up -d`.
+
+**Хранилище:** с S3 API общается только **backend** (загрузка датасетов, presigned URL, синхронизация артефактов после обучения). Сервис **ml** (Celery) пишет файлы на общий том `/data` и по завершении вызывает внутренний endpoint `POST /api/internal/storage/sync` с заголовком `X-Internal-Token` (переменная `INTERNAL_STORAGE_TOKEN` должна совпадать у `backend` и `ml`).
 
 Сервисы:
 - **Портал:** http://localhost:100 (все запросы через nginx)
 - **API:** http://localhost:100/api/
-- **MinIO Console:** http://localhost:100/minio/ (если настроен proxy)
+- **MinIO Console:** http://localhost:100/minio/ (прокси в nginx)
 
 Стек: nginx, frontend (React), backend (FastAPI), ml (Celery worker), PostgreSQL, Redis, MinIO.
 Healthcheck настроен для nginx, backend, postgres, redis, ml.
+
+В сервисе `ml` по умолчанию заданы `SKIP_IMGSZ_SEARCH=1` и `AUTO_IMGSZ=640`, чтобы не запускать длительный перебор размера изображения (как при локальном CLI). Для полного поиска `imgsz` уберите эти переменные или задайте `SKIP_IMGSZ_SEARCH=0`.
 ## Лицензия
 
 Этот проект распространяется под лицензией [MIT](LICENSE).
