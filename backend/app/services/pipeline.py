@@ -1,30 +1,39 @@
 """
-Pipeline service: wraps main.py logic for web execution.
+Pipeline service: обучение и дообучение в веб-стеке (Celery worker).
 Артефакты на диск (общий том с backend); выгрузка в MinIO — через backend после задачи.
 """
+from __future__ import annotations
+
 import os
 import shutil
+from collections.abc import Callable
 
-from backend.dataset.task_selector import determine_task_type
 from backend.dataset.splitting import DataSpliting
 from ml.model import Model
 from backend.db.orm import SyncOrm
 
 
-def run_pipeline(folder: str, task_type: str, job_id: str | None = None) -> None:
+def run_pipeline(
+    folder: str,
+    task_type: str,
+    job_id: str | None = None,
+    progress_callback: Callable[[str], None] | None = None,
+) -> None:
     """
-    Execute train/or retrain + optional inference.
-    folder: path like /data/job_id/task_folder (parent of dataset/)
-    task_type: 'сегментация' or 'классификация'
-    job_id: optional id for ORM/storage (default: extract from folder)
+    progress_callback получает код этапа (см. backend.app.job_progress.STEP_ORDER).
     """
     job_root = os.path.dirname(folder)
     folder_id = job_id or os.path.basename(job_root)
     os.chdir(job_root)
 
+    def _p(step_id: str) -> None:
+        if progress_callback:
+            progress_callback(step_id)
+
     path_dataset = os.path.join(folder, "dataset")
     path_test = os.path.join(folder, "test")
 
+    _p("indexing_files")
     SyncOrm.create_tables()
 
     for root, _, files in os.walk(folder):
@@ -41,34 +50,53 @@ def run_pipeline(folder: str, task_type: str, job_id: str | None = None) -> None
         data.spliting_class(0.7, 0.3, output_dir=data_root)
 
     if task_type == "сегментация":
-        _train_or_retrain("yolo11m-seg.pt", _split_seg, folder_id, path_dataset, data_root)
+        _train_or_retrain(
+            "yolo11m-seg.pt",
+            _split_seg,
+            folder_id,
+            path_dataset,
+            data_root,
+            _p,
+            task_type,
+        )
     elif task_type == "классификация":
-        _train_or_retrain("yolo11m-cls.pt", _split_cls, folder_id, path_dataset, data_root)
-
-    # Загрузка в MinIO выполняется сервисом backend (см. train_task → /api/internal/storage/sync)
+        _train_or_retrain(
+            "yolo11m-cls.pt",
+            _split_cls,
+            folder_id,
+            path_dataset,
+            data_root,
+            _p,
+            task_type,
+        )
 
     if os.path.exists(data_root):
         shutil.rmtree(data_root)
 
 
-def _train_or_retrain(model_type, split_func, folder, path_dataset, data_root):
+def _train_or_retrain(model_type, split_func, folder, path_dataset, data_root, _p, task_type: str):
     train = False
     if not SyncOrm.select_model(folder):
         train = True
+        _p("splitting")
         data = DataSpliting(path_dataset)
         split_func(data)
+        _p("learning")
         model = Model(
             model_type=model_type,
             path_dataset=os.path.abspath(data.output_dir),
             folder=folder,
         )
         model.train()
+        _p("saving_model")
         SyncOrm.update_data(folder)
     elif SyncOrm.select_data_not_trained(folder):
         train = True
-        path_model, version, _, imgsz = SyncOrm.select_model(folder)
+        path_model, version, _, imgsz, _ = SyncOrm.select_model(folder)
+        _p("fine_tune_split")
         data = DataSpliting(path_dataset)
         split_func(data)
+        _p("fine_tuning")
         model = Model(
             path_model=path_model,
             path_dataset=os.path.abspath(data.output_dir),
@@ -77,6 +105,9 @@ def _train_or_retrain(model_type, split_func, folder, path_dataset, data_root):
             version=version,
         )
         model.additional_train()
+        _p("fine_tune_saved")
+    else:
+        _p("nothing_to_train")
 
     if train:
         SyncOrm.update_data(folder)
@@ -86,4 +117,5 @@ def _train_or_retrain(model_type, split_func, folder, path_dataset, data_root):
             "version": model.version,
             "classes": data.names,
             "imgsz": model.imgsz,
+            "task_type": task_type,
         })

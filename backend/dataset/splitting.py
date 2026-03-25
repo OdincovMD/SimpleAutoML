@@ -2,6 +2,7 @@ import yaml
 import os
 from backend.exception.file_system import LabelError, TxtFileNotFoundError, NotEnoughImagesError
 from ml.augmentation import save_with_augmentations
+from ml.quiet import tqdm_disable
 from ml.seed import set_seed
 import random
 import shutil
@@ -16,7 +17,7 @@ class DataSpliting():
     
     @staticmethod
     def save_files_to_dir(files, image_dir, label_dir, dest_image_dir, dest_label_dir, desc):
-        for file in tqdm(files, desc=desc):
+        for file in tqdm(files, desc=desc, disable=tqdm_disable()):
             image_path = os.path.join(image_dir, file)
             dest_image_path = os.path.join(dest_image_dir, file)
 
@@ -100,7 +101,6 @@ class DataSpliting():
             else:
                 raise LabelError(filename)
 
-        print('Введите, что означает каждый класс в датасете')
         self.names = []
         try:
             for el in sorted(map(int, unique_chars)):
@@ -139,7 +139,6 @@ class DataSpliting():
         try:
             with open(output_path, 'w') as file:
                 yaml.dump(data, file, default_flow_style=None, allow_unicode=True)
-            print(f"YAML файл успешно создан: {output_path}")
         except Exception as e:
             raise IOError(f"Ошибка при записи YAML-файла: {e}") 
         self.output_dir = output_path

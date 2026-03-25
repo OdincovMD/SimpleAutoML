@@ -1,4 +1,8 @@
-# AutoML-система для задач компьютерного зрения
+# SimpleAutoML
+
+Веб-система для обучения и выдачи моделей компьютерного зрения (классификация, сегментация). Стек: **React / Vite**, **FastAPI**, **Celery**, **PostgreSQL**, **Redis**, **MinIO**.
+
+**Для разработки:** Python 3.10+, Node.js 18+ (сборка фронтенда), Docker с Compose V2.
 
 ## Содержание
 
@@ -8,17 +12,44 @@
 - [Тестирование (инференс)](#тестирование-инференс)
 - [Локальный запуск](#локальный-запуск-проекта)
 - [Docker и веб-интерфейс](#docker-и-веб-интерфейс)
+- [Продакшен (чеклист)](#продакшен-чеклист)
 - [Лицензия](#лицензия)
+- [Структура репозитория](docs/PROJECT_LAYOUT.md)
 
 ## Описание
 
-Данный проект представляет реализацию **простой AutoML-системы** для автоматизации решения задач компьютерного зрения (CV). Система минимизирует ручные операции, такие как подготовка данных и выбор модели.
+Автоматизирует подготовку данных, обучение и дообучение (YOLO через Ultralytics), инференс и хранение артефактов. Основной способ запуска — **Docker Compose** и единая точка входа через nginx.
 
-Реализованы два режима: **CLI** (`main.py`, локальное обучение) и **веб-стек** (React + FastAPI + Celery + PostgreSQL + Redis + MinIO), собираемый через Docker Compose.
+**Схема веб-стека** (точка входа — `http://localhost:100`):
 
-![Концепция проекта](image.png)
+```mermaid
+flowchart TB
+  B(["Браузер"])
+  subgraph compose["Docker Compose"]
+    NG["nginx :100"]
+    FE["frontend · React / Vite"]
+    API["backend · FastAPI"]
+    WRK["ml · Celery worker"]
+    DB[("PostgreSQL")]
+    RD[("Redis · брокер Celery")]
+    MN["MinIO · S3 и консоль"]
+    VOL[("том ml_data · /data")]
+    B --> NG
+    NG --> FE
+    NG -->|"/api/"| API
+    NG -->|"/minio/"| MN
+    API --> DB
+    API --> RD
+    API -->|ZIP, Drive, выдача файлов| MN
+    API --> VOL
+    WRK --> RD
+    WRK --> DB
+    WRK --> VOL
+    WRK -->|"POST /api/internal/storage/sync"| API
+  end
+```
 
-### Поддерживаемые типы задач:
+### Поддерживаемые типы задач
 1. **Классификация**  
    Определение категории, к которой принадлежит изображение.  
 2. **Сегментация**  
@@ -50,7 +81,7 @@
 Система поддерживает два способа загрузки данных: **Google Drive** и **ZIP-архив**.  
 
 ### **1. Загрузка через Google Drive**  
-Для использования [Google Drive](https://drive.google.com/drive/folders/1tltCIfYpj28-xbc3Vzc4-CgXRxF2KAsU?usp=sharing) необходимо:  
+Настройте сервисный аккаунт Google (файл ключа задаётся в `SERVICE_ACCOUNT_FILE`, см. `.env.example`). В своём Google Drive необходимо:  
 1. Создать директорию с вашим именем.  
 2. Внутри этой директории создать папку с названием вашей задачи (например, `classification` или `segmentation`).  
 3. Разместить в ней папку `dataset`, содержащую файлы для задачи.  
@@ -90,7 +121,7 @@
 #### Требования к структуре:
 ZIP-архив должен содержать папку dataset с файлами, организованными так же, как описано выше для задач классификации и сегментации.
 
-## Тестирование (Инференс)
+## Тестирование (инференс)
 
 Для проведения инференса по вашей задаче необходимо:  
 1. Создать в директории вашей задачи папку `test`.  
@@ -138,7 +169,7 @@ classification/            # Ваша задача
     venv\Scripts\activate
     ```
 5. Установите зависимости:
-    - Для CLI / локального обучения: `pip install -r ml/requirements.txt`
+    - Worker / полный ML-стек локально: `pip install -r ml/requirements.txt`
     - Только backend (FastAPI): `pip install -r backend/requirements.txt`
 6. Создайте файл `.env` в корне репозитория. Достаточно задать либо **`DATABASE_URL`** (строка подключения PostgreSQL), либо отдельные поля, как в `backend/config.py`:
     ```bash
@@ -152,35 +183,36 @@ classification/            # Ваша задача
     DB_PASS=your_pass
     DB_NAME=your_db
 
-    # Google Drive (опционально, для API и CLI)
+    # Google Drive (опционально, для API)
     SERVICE_ACCOUNT_FILE=automl_token.json
     DRIVE_FOLDER_ID=your_drive_folder_id
 
     # Если поднимаете Celery worker и backend отдельно: общий секрет для POST /api/internal/storage/sync
     # INTERNAL_STORAGE_TOKEN=длинная-случайная-строка
     ```
-7. Инициализируйте таблицы БД при первом запуске:
-    ```bash
-    python -c "from backend.db.orm import SyncOrm; SyncOrm.create_tables()"
-    ```
-   Для полного сброса БД: `SyncOrm.init_db()`
+7. **Таблицы PostgreSQL** создаются сами: при старте **FastAPI** (`SyncOrm.create_tables()` в [`backend/app/main.py`](backend/app/main.py)) и при **обучении в worker** (в начале [`run_pipeline`](backend/app/services/pipeline.py)). Отдельно инициализировать БД не нужно.
+
+   Чтобы **полностью пересоздать** таблицы (все данные будут удалены):
+   ```bash
+   python -c "from backend.db.orm import SyncOrm; SyncOrm.init_db()"
+   ```
 
 ## Docker и веб-интерфейс
 
 ### Требования
 
-- Docker Engine и **Docker Compose V2** с поддержкой директивы **`include`** (рекомендуется Compose **2.20+**). Если `include` недоступен, подключите MinIO вторым файлом:
-  ```bash
-  docker compose -f docker-compose.yml -f docker-compose.minio.yml up -d
-  ```
+- Docker Engine и **Docker Compose V2**.
 
 ### Быстрый старт
 
 ```bash
 cp .env.example .env
-# Обязательно смените INTERNAL_STORAGE_TOKEN в продакшене (одинаковое значение для backend и worker).
+# В продакшене смените пароли и INTERNAL_STORAGE_TOKEN (одинаковый токен у backend и ml).
+# Для Google Drive задайте DRIVE_FOLDER_ID и положите JSON ключа (см. SERVICE_ACCOUNT_FILE).
 docker compose up -d --build
 ```
+
+При старте контейнера **backend** схема БД в PostgreSQL создаётся автоматически (`SyncOrm.create_tables()` в lifespan приложения).
 
 Точки входа после запуска:
 
@@ -198,10 +230,10 @@ docker compose up -d --build
 | **nginx** | Единая точка входа, лимит тела запроса 500M, прокси API и MinIO Console |
 | **frontend** | SPA (React, Vite, TypeScript) |
 | **backend** | FastAPI: датасеты, Drive, задачи, модели, работа с MinIO (S3 API) |
-| **ml** | Celery worker: обучение YOLO; общий том `/data` с backend; после обучения дергает внутренний API синхронизации в MinIO |
+| **ml** | Celery worker: обучение YOLO; общий том `/data` с backend; после обучения вызывает внутренний API синхронизации в MinIO |
 | **postgres** | Метаданные датасетов и моделей |
 | **redis** | Брокер и backend результатов Celery |
-| **minio** | Объектное хранилище (отдельный compose-файл [`docker-compose.minio.yml`](docker-compose.minio.yml), подключается через `include` в корневом [`docker-compose.yml`](docker-compose.yml)) |
+| **minio** | Объектное хранилище (S3 API), том `minio_data` |
 
 Healthcheck настроен для **nginx**, **backend**, **postgres**, **redis**, **ml**. У образа `minio/minio` отдельный healthcheck не используется (минимальный rootfs).
 
@@ -223,7 +255,7 @@ Healthcheck настроен для **nginx**, **backend**, **postgres**, **redi
 
 ### Обучение в контейнере
 
-В **ml** по умолчанию заданы **`SKIP_IMGSZ_SEARCH=1`** и **`AUTO_IMGSZ=640`**, чтобы не запускать длительный перебор размера изображения (в CLI без этих переменных может выполняться `check_imgsz`). Чтобы вернуть перебор в worker, задайте **`SKIP_IMGSZ_SEARCH=0`** и при необходимости уберите **`AUTO_IMGSZ`**.
+В **ml** по умолчанию заданы **`SKIP_IMGSZ_SEARCH=1`** и **`AUTO_IMGSZ=640`**, чтобы не запускать длительный перебор размера изображения (`check_imgsz`). Также **`AUTOML_QUIET=1`** отключает прогресс-бары tqdm в worker. Чтобы вернуть перебор `imgsz`, задайте **`SKIP_IMGSZ_SEARCH=0`**; для tqdm в логах — **`AUTOML_QUIET=0`**.
 
 ### Полезные команды
 
@@ -232,6 +264,16 @@ docker compose logs -f ml backend      # логи worker и API
 docker compose build --no-cache ml     # пересборка после смены ml/requirements.txt
 docker compose down -v                 # остановка и удаление томов (данные БД и MinIO пропадут)
 ```
+
+## Продакшен (чеклист)
+
+- **Секреты:** сильные `POSTGRES_PASSWORD`, `MINIO_ROOT_PASSWORD`, `INTERNAL_STORAGE_TOKEN`; не коммитьте `.env` и ключи (`automl_token.json` и т.п.).
+- **CORS:** в [`backend/app/main.py`](backend/app/main.py) замените `allow_origins="*"` на список ваших доменов.
+- **TLS:** вынесите HTTPS на внешний reverse proxy (Traefik, Caddy, облачный LB); не публикуйте HTTP-порт сервиса в открытую сеть без шифрования.
+- **БД и бэкапы:** при старте backend создаёт таблицы и при необходимости добавляет колонки `task_type`, `trained_at`. Настройте резервное копирование PostgreSQL и томов MinIO по вашей политике.
+- **Образы:** зафиксируйте теги образов (в т.ч. MinIO) вместо `latest`.
+- **Frontend в CI:** `npm ci` и `npm run build` в `frontend/` для воспроизводимых артефактов.
+- **Google Drive:** без валидного `DRIVE_FOLDER_ID` и сервисного аккаунта эндпоинты Drive не использовать; для продакшена предпочтительнее ZIP и MinIO.
 
 ## Лицензия
 
@@ -245,4 +287,4 @@ docker compose down -v                 # остановка и удаление 
 [Google API](https://cloud.google.com/apis/)  
 [ultralytics](https://github.com/ultralytics)
 
-Если вы хотите внести свой вклад или предложить улучшения, не стесняйтесь создавать issue или pull request!
+Улучшения и багрепорты — через issue и pull request в репозитории.

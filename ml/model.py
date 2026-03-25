@@ -1,10 +1,11 @@
 from ultralytics import YOLO
 from ml.check_imgsz import check_imgsz
-from backend.dataset.load_dataset import upload_to_drive
+from backend.integrations.google_drive_upload import upload_to_drive
 from ml.seed import set_seed
 from PIL import Image
 import torch
 import numpy as np
+import glob
 import os
 import shutil
 from backend.exception.file_system import NoTestDataError
@@ -68,13 +69,14 @@ class Model:
         model = YOLO(self.model_type)
         model.train(
             data=self.path_dataset,
-            epochs=100,
+            epochs=1,
             batch=4,
             device=self.device,
             workers=2,
             project=self.save_dir,
             imgsz=self.imgsz,
-            seed=self.random_seed
+            seed=self.random_seed,
+            verbose=False,
         )
 
         # Сохранение весов модели и результатов
@@ -94,7 +96,8 @@ class Model:
             workers=2,
             project=self.save_dir,
             imgsz=self.imgsz,
-            seed=self.random_seed
+            seed=self.random_seed,
+            verbose=False,
         )
         # Сохранение весов модели и результатов
         self._save_results()
@@ -124,25 +127,46 @@ class Model:
         """
         Вспомогательный метод для сохранения весов и метрик модели.
         """
-        source_weights_path = os.path.join(self.save_dir, 'train', 'weights', 'last.pt')
-        source_results_path = os.path.join(self.save_dir, 'train', 'results.png')
-
         destination_folder = os.path.join('models', self.folder)
         os.makedirs(destination_folder, exist_ok=True)
 
+        train_dirs = sorted(
+            glob.glob(os.path.join(self.save_dir, 'train*')),
+            key=os.path.getmtime,
+            reverse=True,
+        )
+        if not train_dirs:
+            raise FileNotFoundError(
+                f"Нет каталога train* в {self.save_dir!r} после обучения"
+            )
+        train_root = train_dirs[0]
+        wdir = os.path.join(train_root, 'weights')
+        source_weights_path = os.path.join(wdir, 'last.pt')
+        if not os.path.isfile(source_weights_path):
+            best_pt = os.path.join(wdir, 'best.pt')
+            if os.path.isfile(best_pt):
+                source_weights_path = best_pt
+            else:
+                raise FileNotFoundError(
+                    f"Нет last.pt или best.pt в {wdir!r}"
+                )
+
         weight_filename = f"last_{self.version}.pt"
-        result_filename = f"results_{self.version}.png"
-
         self.path_model = os.path.join(destination_folder, weight_filename)
-        destination_results_path = os.path.join(destination_folder, result_filename)
-
         shutil.copy2(source_weights_path, self.path_model)
-        shutil.copy2(source_results_path, destination_results_path)
+
+        # Ultralytics не всегда создаёт results.png (классификация, verbose=False и т.д.)
+        for name in ('results.png', 'results.jpg'):
+            src = os.path.join(train_root, name)
+            if os.path.isfile(src):
+                ext = os.path.splitext(name)[1]
+                dst = os.path.join(
+                    destination_folder, f"results_{self.version}{ext}"
+                )
+                shutil.copy2(src, dst)
+                break
 
         shutil.rmtree(self.save_dir, ignore_errors=True)
-
-        print(f"Модель сохранена как: {self.path_model}")
-        print(f"Результаты сохранены как: {destination_results_path}")
 
     def _process_image_seg(self, dir_images: str):
         """

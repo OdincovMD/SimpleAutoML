@@ -71,6 +71,7 @@ def check_imgsz(
             batch=4,
             workers=2,
             device=device("cuda:0" if cuda.is_available() else "cpu"),
+            verbose=False,
         )
         metrics = model.val()
         if "cls" in model_type:

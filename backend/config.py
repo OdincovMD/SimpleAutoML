@@ -1,9 +1,7 @@
-"""Backend-wide configuration (DB, Redis, MinIO, Drive, ML paths)."""
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    # DB - prefer DATABASE_URL, else build from components
     DB_HOST: str = "localhost"
     DB_PORT: int = 5432
     DB_USER: str = "automl"
@@ -19,14 +17,12 @@ class Settings(BaseSettings):
     MINIO_SECRET_KEY: str = "minioadmin"
     MINIO_SECURE: bool = False
 
-    # Общий секрет backend ↔ Celery worker для POST /api/internal/storage/sync
     INTERNAL_STORAGE_TOKEN: str = ""
 
     ML_DATA_PATH: str = "/data"
 
-    # Google Drive (CLI)
     SERVICE_ACCOUNT_FILE: str = "automl_token.json"
-    DRIVE_FOLDER_ID: str = "1tltCIfYpj28-xbc3Vzc4-CgXRxF2KAsU"
+    DRIVE_FOLDER_ID: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

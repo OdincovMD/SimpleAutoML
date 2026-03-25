@@ -11,9 +11,6 @@ license = { text = "MIT" }
 requires-python = ">=3.10"
 dependencies = []
 
-[project.scripts]
-simpleautoml = "main:run"
-
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["ml*", "backend*"]

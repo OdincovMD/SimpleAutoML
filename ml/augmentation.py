@@ -1,6 +1,8 @@
 import os
 import shutil
 from tqdm import tqdm
+
+from ml.quiet import tqdm_disable
 from PIL import Image
 from torchvision import transforms
 
@@ -32,7 +34,7 @@ def save_with_augmentations(files, source_dir, dest_dir, class_name, desc, augme
     """
     os.makedirs(os.path.join(dest_dir, class_name), exist_ok=True)
     
-    for file in tqdm(files, desc=desc):
+    for file in tqdm(files, desc=desc, disable=tqdm_disable()):
         original_image_path = os.path.join(source_dir, file)
         save_path = os.path.join(dest_dir, class_name, file)
             

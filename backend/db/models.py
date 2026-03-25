@@ -1,5 +1,7 @@
 import json
-from sqlalchemy import VARCHAR, Index, Boolean, Text, INTEGER, UniqueConstraint
+from datetime import datetime
+
+from sqlalchemy import VARCHAR, Index, Boolean, Text, INTEGER, UniqueConstraint, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 from typing import Annotated
 
@@ -34,6 +36,10 @@ class ModelsOrm(Base):
     version: Mapped[intk]
     _classes: Mapped[str] = mapped_column("classes", Text, nullable=True)
     imgsz: Mapped[intk]
+    task_type: Mapped[str | None] = mapped_column(Text, nullable=True)
+    trained_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     @property
     def classes(self) -> list:

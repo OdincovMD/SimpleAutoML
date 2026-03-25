@@ -11,6 +11,8 @@ import Card from "../components/ui/Card";
 import PageHeader from "../components/ui/PageHeader";
 import Spinner from "../components/ui/Spinner";
 import CodeBlock from "../components/ui/CodeBlock";
+import { TASK_TYPE_UX } from "../jobSteps";
+import { labels } from "../uiCopy";
 
 const LS_FOLDER = "automl_last_folder_id";
 const LS_JOB = "automl_last_job_id";
@@ -105,10 +107,7 @@ export default function Upload() {
 
   return (
     <div className="animate-in">
-      <PageHeader
-        title="Загрузка датасета"
-        description="Выберите источник данных и запустите обучение модели. Поддерживаются ZIP-архивы и Google Drive."
-      />
+      <PageHeader title="Загрузка датасета" description={labels.uploadPageDesc} />
 
       <div className="tabs" style={{ marginBottom: "var(--space-6)" }}>
         <button
@@ -301,16 +300,104 @@ export default function Upload() {
             ✓ Задача запущена
           </p>
           <p style={{ margin: "var(--space-2) 0 0", fontSize: "14px", color: "var(--text-muted)" }}>
-            Тип: {result.task}
+            Тип: {TASK_TYPE_UX[result.task] ?? result.task}
+          </p>
+
+          <div
+            style={{
+              marginTop: "var(--space-5)",
+              padding: "var(--space-4)",
+              borderRadius: "var(--radius-md)",
+              border: "1px solid var(--border)",
+              background: "var(--bg-elevated)",
+            }}
+          >
+            <p
+              style={{
+                margin: "0 0 var(--space-3)",
+                fontWeight: 700,
+                fontSize: "14px",
+                fontFamily: "var(--font-heading)",
+              }}
+            >
+              Что будет дальше
+            </p>
+            <ol
+              style={{
+                margin: 0,
+                paddingLeft: "1.25rem",
+                fontSize: "14px",
+                color: "var(--text-muted)",
+                lineHeight: 1.65,
+              }}
+            >
+              <li style={{ marginBottom: "var(--space-2)" }}>
+                Файлы учтутся в базе, датасет разобьётся на обучение и проверку (train / val).
+              </li>
+              <li style={{ marginBottom: "var(--space-2)" }}>
+                Запустится обучение модели — обычно самый долгий этап; страницу можно закрыть.
+              </li>
+              <li style={{ marginBottom: "var(--space-2)" }}>
+                Веса сохранятся на диск и будут скопированы в объектное хранилище (MinIO).
+              </li>
+              <li>
+                Модель появится в каталоге — оттуда можно скачать веса и перейти к инференсу.
+              </li>
+            </ol>
+            <p style={{ margin: "var(--space-3) 0 0", fontSize: "13px" }}>
+              <Link
+                to={`/jobs?job=${encodeURIComponent(result.job_id)}&folder=${encodeURIComponent(result.folder_id)}`}
+                style={{ color: "var(--accent)", fontWeight: 600 }}
+              >
+                Подробный прогресс по этапам →
+              </Link>
+            </p>
+          </div>
+
+          <p style={{ margin: "var(--space-4) 0 0", fontSize: "12px", color: "var(--text-muted)" }}>
+            {labels.uploadSuccessJobLabel}
           </p>
           <CodeBlock value={result.job_id} />
-          <Link
-            to={`/jobs?job=${result.job_id}`}
-            className="btn btn--primary btn--md"
-            style={{ marginTop: "var(--space-4)", textDecoration: "none" }}
+          <p style={{ margin: "var(--space-2) 0 0", fontSize: "12px", color: "var(--text-muted)", maxWidth: "52ch" }}>
+            {labels.jobNumberHint}
+          </p>
+          <p style={{ margin: "var(--space-4) 0 0", fontSize: "12px", color: "var(--text-muted)" }}>
+            {labels.uploadSuccessProjectLabel}
+          </p>
+          <CodeBlock value={result.folder_id} />
+          <p style={{ margin: "var(--space-2) 0 0", fontSize: "12px", color: "var(--text-muted)", maxWidth: "52ch" }}>
+            {labels.projectIdHint}
+          </p>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "var(--space-2)",
+              marginTop: "var(--space-4)",
+            }}
           >
-            Отслеживать статус →
-          </Link>
+            <Link
+              to={`/jobs?job=${encodeURIComponent(result.job_id)}&folder=${encodeURIComponent(result.folder_id)}`}
+              className="btn btn--primary btn--md"
+              style={{ textDecoration: "none" }}
+            >
+              Смотреть прогресс обучения
+            </Link>
+            <Link
+              to={`/models?folder=${encodeURIComponent(result.folder_id)}`}
+              className="btn btn--secondary btn--md"
+              style={{ textDecoration: "none" }}
+            >
+              Модель
+            </Link>
+            <Link
+              to={`/inference?folder=${encodeURIComponent(result.folder_id)}`}
+              className="btn btn--secondary btn--md"
+              style={{ textDecoration: "none" }}
+            >
+              Инференс
+            </Link>
+          </div>
         </div>
       )}
     </div>

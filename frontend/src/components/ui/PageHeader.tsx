@@ -5,12 +5,12 @@ interface PageHeaderProps {
 
 export default function PageHeader({ title, description }: PageHeaderProps) {
   return (
-    <header
-      className="animate-in"
-      style={{ marginBottom: "var(--space-8)" }}
-    >
-      <h1 className="page-title">{title}</h1>
-      {description && <p className="page-desc">{description}</p>}
+    <header className="page-header animate-in">
+      <div className="page-header__accent" aria-hidden />
+      <div className="page-header__text">
+        <h1 className="page-title">{title}</h1>
+        {description && <p className="page-desc">{description}</p>}
+      </div>
     </header>
   );
 }

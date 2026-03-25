@@ -12,7 +12,6 @@ def determine_task_type(path_dataset):
         
         if os.listdir(images_path) and os.listdir(labels_path):
             if all(file.endswith(".txt") for file in os.listdir(labels_path)):
-                print('Выбрана задача: сегментация')
                 return "сегментация"
     
     elif all(
@@ -20,6 +19,5 @@ def determine_task_type(path_dataset):
         os.listdir(os.path.join(path_dataset, item))
         for item in top_level_items
     ):
-        print('Выбрана задача: классификация')
         return "классификация"
     raise IncorrectDatasetFormatError()
