@@ -82,10 +82,10 @@ class SyncOrm:
                 )
                 .select_from(ModelsOrm)
                 .where(ModelsOrm.train_folder == folder)
+                .order_by(desc(ModelsOrm.version), desc(ModelsOrm.id))
+                .limit(1)
             )
-            result = session.execute(query)
-            rows = result.fetchall()
-            return rows[-1] if rows else None
+            return session.execute(query).fetchone()
 
     @staticmethod
     def list_models_latest():
