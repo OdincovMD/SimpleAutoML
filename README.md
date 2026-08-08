@@ -287,4 +287,3 @@ docker compose down -v                 # остановка и удаление 
 [Google API](https://cloud.google.com/apis/)  
 [ultralytics](https://github.com/ultralytics)
 
-Улучшения и багрепорты — через issue и pull request в репозитории.
