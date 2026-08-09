@@ -269,7 +269,6 @@ docker compose down -v                 # остановка и удаление 
 
 - **Секреты:** сильные `POSTGRES_PASSWORD`, `MINIO_ROOT_PASSWORD`, `INTERNAL_STORAGE_TOKEN`; не коммитьте `.env` и ключи (`automl_token.json` и т.п.).
 - **CORS:** в [`backend/app/main.py`](backend/app/main.py) замените `allow_origins="*"` на список ваших доменов.
-- **TLS:** вынесите HTTPS на внешний reverse proxy (Traefik, Caddy, облачный LB); не публикуйте HTTP-порт сервиса в открытую сеть без шифрования.
 - **БД и бэкапы:** при старте backend создаёт таблицы и при необходимости добавляет колонки `task_type`, `trained_at`. Настройте резервное копирование PostgreSQL и томов MinIO по вашей политике.
 - **Образы:** зафиксируйте теги образов (в т.ч. MinIO) вместо `latest`.
 - **Frontend в CI:** `npm ci` и `npm run build` в `frontend/` для воспроизводимых артефактов.
