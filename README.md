@@ -237,11 +237,6 @@ docker compose up -d --build
 
 Healthcheck настроен для **nginx**, **backend**, **postgres**, **redis**, **ml**. У образа `minio/minio` отдельный healthcheck не используется (минимальный rootfs).
 
-### Хранилище и безопасность
-
-- С **MinIO по S3 API** взаимодействует только **backend** (загрузка ZIP в бакет, presigned URL для скачивания модели, выгрузка `results/` и `models/` после задачи).
-- **ml** не содержит клиента MinIO: пишет артефакты на том **`ml_data`** (`/data` в контейнерах) и вызывает **`POST /api/internal/storage/sync`** с заголовком **`X-Internal-Token`**. Значение **`INTERNAL_STORAGE_TOKEN`** должно совпадать у сервисов **backend** и **ml** (задаётся в `.env` / compose; в примере по умолчанию в compose — только для разработки).
-
 ### Переменные окружения (Docker)
 
 См. [`.env.example`](.env.example). Часто используемые:
